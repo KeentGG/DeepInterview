@@ -6,8 +6,8 @@ security and privacy seriously and welcome responsible disclosure.
 
 ## Reporting a vulnerability
 
-**Please do not report security issues in public GitHub issues, Discussions, or
-pull requests.** A public report tells attackers about the problem before a fix
+**Please do not report security issues in public GitHub issues or pull
+requests.** A public report tells attackers about the problem before a fix
 exists.
 
 Instead, open a **private security advisory** at
