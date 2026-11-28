@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { getMessages, type Dictionary, type Locale } from "@/lib/i18n";
 
 /**
- * Client-side message resolution. `getMessages` keeps EN as the default pack;
- * here we layer the `vi` pack on top when the user has chosen Vietnamese via
- * the locale cookie — without modifying the server-side dictionary registry.
+ * Shared window event emitted after the `locale` cookie changes. Hooks listen
+ * for it so client components re-render without a full page reload; server
+ * components still update through `router.refresh()`.
  */
-function resolve(locale: Locale): Dictionary {
-  return getMessages(locale);
-}
+export const LOCALE_CHANGE_EVENT = "openinterview:locale-change";
 
-function readLocaleCookie(): Locale {
+type LocaleChangeDetail = { locale: Locale };
+
+/**
+ * Read the tracked `locale` cookie. Unset/unknown values fall back to EN.
+ */
+export function readLocaleCookie(): Locale {
   if (typeof document === "undefined") return "en";
   const match = document.cookie
     .split("; ")
@@ -20,28 +23,38 @@ function readLocaleCookie(): Locale {
   return match?.split("=")[1] === "vi" ? "vi" : "en";
 }
 
-/**
- * Resolve messages on the client from the `locale` cookie. Starts at EN for a
- * stable first paint, then re-resolves after mount (avoids hydration drift).
- */
-export function useMessages(): Dictionary {
-  const [messages, setMessages] = useState<Dictionary>(() => resolve("en"));
-  useEffect(() => {
-    setMessages(resolve(readLocaleCookie()));
-  }, []);
-  return messages;
+/** Notify mounted locale hooks that the cookie changed (no page reload). */
+export function emitLocaleChange(locale: Locale): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<LocaleChangeDetail>(LOCALE_CHANGE_EVENT, {
+      detail: { locale },
+    }),
+  );
 }
 
 /**
  * The active locale from the `locale` cookie. Starts at EN for a stable first
- * paint, then re-resolves after mount (same hydration-safe pattern as
- * `useMessages`). Use it to route locale-dependent behavior (e.g. the language
- * the study coach answers in) to the user's chosen language.
+ * paint, then re-resolves after mount and on every `LOCALE_CHANGE_EVENT` (the
+ * toggle writes the cookie and emits it) — hydration-safe without a reload.
  */
 export function useLocale(): Locale {
   const [locale, setLocale] = useState<Locale>("en");
   useEffect(() => {
-    setLocale(readLocaleCookie());
+    const sync = () => setLocale(readLocaleCookie());
+    sync();
+    window.addEventListener(LOCALE_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(LOCALE_CHANGE_EVENT, sync);
   }, []);
   return locale;
+}
+
+/**
+ * Messages for the active locale. `getMessages` keeps EN as the default pack
+ * and swaps in `vi` once the cookie says so — without touching the server-side
+ * registry. Shares `useLocale`'s cookie/event state, so `useMessages()` and
+ * `useLocale()` always agree after a language switch.
+ */
+export function useMessages(): Dictionary {
+  return getMessages(useLocale());
 }
