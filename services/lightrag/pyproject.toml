@@ -3,7 +3,9 @@ name = "deepinterview-lightrag"
 version = "0.3.0"
 description = "DeepInterview knowledge sidecar — NaiveRAG by default, LightRAG + RAG-Anything + bge-m3 as an optional extra (WP-8)."
 license = "Apache-2.0"
-requires-python = ">=3.11"
+# 3.11.5 is the floor for soupsieve 3+ (fixes CVE-2026-126190/1); the
+# python:3.11-slim image and CI are already on 3.11.15+.
+requires-python = ">=3.11.5"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn>=0.32",
