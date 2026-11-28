@@ -972,3 +972,8 @@ def test_build_tts_cartesia_delivery_and_buffering() -> None:
     assert buffered_tts._opts.voice == "voice-123"
     assert buffered_tts._opts.speed == 1.0
     assert buffered_tts._opts.emotion == ["Calm"]
+def test_build_turn_handling_sets_thinking_pause_endpointing() -> None:
+    """Both semantic-EOU and fallback paths must keep the widened endpointing window."""
+    handling = worker.build_turn_handling("vi")
+    assert handling["interruption"] == {"min_words": 3}
+    assert handling["endpointing"] == {"min_delay": 1.0, "max_delay": 6.0}

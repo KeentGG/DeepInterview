@@ -137,6 +137,10 @@ class Settings(BaseSettings):
     # --- supabase ------------------------------------------------------------
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
+    # Local zero-infra persistence: a SQLite file path (e.g.
+    # ``~/.local/share/deepinterview/sessions.db``). Used when Supabase is not
+    # configured; unset keeps the in-memory store (lost on restart).
+    sqlite_path: str | None = None
 
     # --- livekit -------------------------------------------------------------
     livekit_url: str | None = None
@@ -148,6 +152,8 @@ class Settings(BaseSettings):
     # room joins with no agent listening ("Connecting your interviewer…"
     # forever, issue #67).
     livekit_agent_name: str = "deepinterview-interviewer"
+    # Separate dispatch name for the spoken Socratic coach worker.
+    livekit_coach_agent_name: str = "deepinterview-coach"
 
     # --- knowledge (LightRAG sidecar) ----------------------------------------
     # When set, the knowledge adapter + /api/kb/ingest forward to this base URL;
