@@ -12,6 +12,10 @@
 #              python -m deepinterview_agent.worker
 #            docker-compose.yml runs the worker via the `live` profile.
 #
+# Both runtime stages (`api`, `worker`) switch to the non-root `appuser`
+# (uid 10001); the installer stages stay root so `uv sync` and the model bake
+# need no privilege rework.
+#
 # BUILD CONTEXT = repo root (matches docker-compose.yml `context: .`):
 #     docker build -f apps/agent/Dockerfile -t deepinterview-agent .
 
@@ -27,6 +31,16 @@ ENV UV_COMPILE_BYTECODE=1 \
     AGENT_API_PORT=8000
 
 WORKDIR /app
+
+# Runtime user. Created in `base` — before the worker model bake below — so the
+# silero/turn-detector weights and the uv cache land under this user's home and
+# are readable/writable once the final stages switch to it. The installer stages
+# (base, worker-deps) stay root; only `api` and `worker` drop privileges. UID
+# 10001 matches services/lightrag/Dockerfile.
+RUN useradd --create-home --uid 10001 appuser
+ENV HOME=/home/appuser \
+    HF_HOME=/home/appuser/.cache/huggingface \
+    UV_CACHE_DIR=/home/appuser/.cache/uv
 
 # Dependency layers FIRST (lockfiles only, --no-install-project), source LAST:
 # deps and the baked ML models stay cached across code edits — previously any
@@ -60,6 +74,11 @@ COPY apps/agent/src ./src
 RUN uv sync --frozen --no-dev --extra gemini --extra openai --extra supabase --extra tavily \
  || uv sync --no-dev --extra gemini --extra openai --extra supabase --extra tavily
 
+# Hand the project (incl. .venv), the trace dir and the caches to the runtime
+# user, then drop root. `uv run` in CMD needs to write only inside these paths.
+RUN chown -R appuser:appuser /app /home/appuser
+USER appuser
+
 EXPOSE 8000
 
 # Default = the API service. Override `command:` to run the worker.
@@ -73,5 +92,9 @@ FROM worker-deps AS worker
 COPY apps/agent/src ./src
 RUN uv sync --frozen --no-dev --extra livekit --extra gemini --extra openai --extra supabase --extra tavily \
  || uv sync --no-dev --extra livekit --extra gemini --extra openai --extra supabase --extra tavily
+# Same privilege drop as `api`: /app also holds the baked model caches' parent
+# tree, so the worker can append traces and read weights without a re-download.
+RUN chown -R appuser:appuser /app /home/appuser
+USER appuser
 # `start` connects to LiveKit and waits for jobs (needs LIVEKIT_*/STT/TTS keys).
 CMD ["uv", "run", "python", "-m", "deepinterview_agent.worker", "start"]

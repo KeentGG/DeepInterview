@@ -136,8 +136,73 @@ jobs:
           file: apps/agent/Dockerfile
           target: api
           push: false
+          load: true
+          tags: openinterview-agent-api:ci
           cache-from: type=gha,scope=agent-api
           cache-to: type=gha,mode=max,scope=agent-api
+
+      # The worker is a separate stage (livekit extra + baked model weights) and
+      # previously never built in CI, so its Dockerfile edits could rot unseen.
+      - name: Build agent worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/agent/Dockerfile
+          target: worker
+          push: false
+          load: true
+          tags: openinterview-agent-worker:ci
+          cache-from: type=gha,scope=agent-worker
+          cache-to: type=gha,mode=max,scope=agent-worker
+
+      # The agent images run as `appuser` (uid 10001). A regression to root is
+      # silent at build time, so assert the user on both loaded images.
+      - name: Verify agent images run as non-root
+        run: |
+          set -euo pipefail
+          for image in openinterview-agent-api:ci openinterview-agent-worker:ci; do
+            uid="$(docker run --rm "$image" id -u)"
+            if [ "$uid" != "10001" ]; then
+              echo "$image runs as uid $uid, expected 10001" >&2
+              exit 1
+            fi
+            echo "$image runs as uid $uid"
+          done
+
+      # Boot the non-root API and require /health, mirroring the compose
+      # start_period. Any `Permission denied` in the logs fails the smoke.
+      - name: Smoke-test agent API image
+        run: |
+          set -euo pipefail
+          docker rm -f agent-api-smoke >/dev/null 2>&1 || true
+          trap 'docker rm -f agent-api-smoke >/dev/null 2>&1 || true' EXIT
+          docker run -d --name agent-api-smoke -p 8000:8000 openinterview-agent-api:ci
+          ok=0
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "Agent API health check failed" >&2
+            docker logs agent-api-smoke >&2 || true
+            exit 1
+          fi
+          if docker logs agent-api-smoke 2>&1 | grep -i "permission denied"; then
+            echo "Agent API logged a permission error" >&2
+            exit 1
+          fi
+          echo "Agent API healthy as uid $(docker exec agent-api-smoke id -u)"
+
+      # The worker needs live keys to `start`, but importing the module proves
+      # the livekit extra, the baked weights' paths and the non-root venv work.
+      - name: Verify agent worker imports as non-root
+        run: |
+          set -euo pipefail
+          docker run --rm openinterview-agent-worker:ci \
+            uv run python -c "import deepinterview_agent.worker"
 
       - name: Build lightrag image
         uses: docker/build-push-action@v6
