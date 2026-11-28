@@ -31,10 +31,10 @@ This file is the single source of truth for transition work. Update it after eve
 - **Item:** 2 — Brand and conversion
 - **Branch:** `transition/brand-conversion`
 - **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/brand-conversion`
-- **Baseline:** main `8a713cb28ec1dc93ece064858747ab4bb82c0709`
+- **Baseline:** main `3771b699b957c06eb7abde55823e7236add0fe2b`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Brand QA and locale-switch fixes applied and pushed; ready for re-review.
+- **Status:** Ready for UI review — CI, independent reviews, and browser QA are green
 - **Notes:** User-facing branding and fork links are updated. Internal identifiers, persisted keys, and upstream attribution are unchanged; the hero mock uses a neutral session label (no unowned fork domain). Fork Issues and private vulnerability reporting are enabled; Discussions is disabled, so community links route to Issues. The VI toggle now updates client hooks immediately via a shared locale-change event (server components still refresh).
 
 ## Done
@@ -834,3 +834,40 @@ Remaining manual QA: on `/setup` and `/prep`, click VI → client strings switch
 - Removed generated QA artifacts from the worktree: untracked `apps/web/AGENTS.md` deleted; `apps/web/next-env.d.ts` restored to HEAD (its only diff was Next dev-generated `.next/dev/types` imports).
 - **Audit:** `rg -ni 'discussions'` (excluding lockfiles, CHANGELOG, WORKLOG) → zero hits.
 - **Check:** `pnpm --filter @deepinterview/web typecheck` → pass. No image rebuild.
+
+### Browser QA outcome (2026-11-29)
+
+- QA origin: `http://localhost:3101`. The first attempt used `127.0.0.1`, which
+  Next 16 blocked from dev/HMR resources; switching to `localhost` restored
+  client hydration. This was a QA-origin issue, not a product defect.
+- Landing at 390px: `document.documentElement.scrollWidth === 390`, no elements
+  exceeded the viewport. Desktop 1440px also had no overflow.
+- Locale: clicking VI changed the setup heading to “Thiết lập buổi phỏng vấn”
+  and set `locale=vi`; clicking EN restored “Set up your interview” and
+  `locale=en`. No full page reload.
+- Theme: clicking Dark added the `dark` class to `<html>`.
+- Pages checked: landing, `/setup`, `/report/sample`, `/prep`, and
+  `/interview/coach`, at desktop and mobile widths in light/dark where relevant.
+- Screenshot review (OpenCode Go vision judge): OpenInterview branding, layout,
+  and contrast passed for landing desktop/mobile, setup dark mobile, report
+  desktop/mobile, Prep Coach desktop, and coach landing desktop/mobile.
+- Brand assets: `/icon.svg` and `/opengraph-image` returned 200. Avatar image
+  requests 404 because no avatar packs are published; the existing gradient
+  fallback rendered. No browser console errors.
+- Screenshots: `/tmp/openinterview-brand-shots/` (landing, setup, report, prep,
+  coach; desktop/mobile; light/dark).
+- Not exercised: credentialed LiveKit session start, which requires external
+  LiveKit/STT/TTS keys.
+
+### Final CI and review outcome
+
+- PR: https://github.com/KeentGG/OpenInterview/pull/9
+- Final reviewed head: `3e6dbacca3fecd6dff3cea9f68eea360a453cb8c`
+- CI: https://github.com/KeentGG/OpenInterview/actions/runs/46169813190 — all
+  four jobs passed (`security`, `gitleaks`, `build`, `docker-build`).
+- Tests: 266 passed, 1 skipped (Vitest 48, agent 212, LightRAG 6).
+- Correctness review: no remaining confirmed issue.
+- Security review: private reporting path works; no new security issue.
+- Content review: all brand/link misses closed; no remaining stale branding.
+- Repository settings: Issues enabled; private vulnerability reporting enabled;
+  Discussions disabled and all Discussions links removed.
