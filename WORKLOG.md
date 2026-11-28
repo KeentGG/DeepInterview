@@ -14,8 +14,7 @@ This file is the single source of truth for transition work. Update it after eve
   - [x] Scan the fork with Trivy and record remaining accepted risk.
   - [x] Add web Docker-image build coverage (local image build verified).
   - [x] Verify fork Actions run after push.
-  - [ ] **Follow-up:** run the agent API and worker containers as non-root (`DS-0002`).
-    Implemented on `transition/nonroot-agent`; awaiting independent review and merge.
+  - [x] **Follow-up:** run the agent API and worker containers as non-root (`DS-0002`).
 - [ ] **2. Brand and conversion**
   - [ ] Replace remaining user-facing DeepInterview branding and upstream clone links.
   - [ ] Enable and configure fork Issues.
@@ -29,14 +28,14 @@ This file is the single source of truth for transition work. Update it after eve
 
 ## Currently doing
 
-- **Item:** 1 follow-up — non-root agent image (accepted `DS-0002`)
-- **Branch:** `transition/nonroot-agent`
-- **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/nonroot-agent`
-- **Baseline:** main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`
+- **Item:** 2 — Brand and conversion
+- **Branch:** Not created yet
+- **Worktree:** Not created yet
+- **Baseline:** main `8a713cb28ec1dc93ece064858747ab4bb82c0709`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Ready to merge — final CI and independent reviews are green
-- **Notes:** Close accepted `DS-0002` before moving to brand/conversion.
+- **Status:** Queued
+- **Notes:** Replace remaining user-facing DeepInterview branding and upstream clone links; enable and configure fork Issues.
 
 ## Done
 
@@ -49,7 +48,18 @@ This file is the single source of truth for transition work. Update it after eve
 - Final CI: https://github.com/KeentGG/OpenInterview/actions/runs/46157866147
 - Checks: 264 passed, 1 skipped; security, gitleaks, build, and Docker smoke all passed.
 - Review: correctness, security, and test/durability reviews found no remaining issue.
-- Notes: Next 16.4.6 and Python locks are current; Trivy reports 0 HIGH/CRITICAL vulnerabilities and 0 secrets. `DS-0002` remains as the next follow-up.
+- Notes: Next 16.4.6 and Python locks are current; Trivy reports 0 HIGH/CRITICAL vulnerabilities and 0 secrets. `DS-0002` is closed in the follow-up below.
+
+### 1 follow-up — non-root agent image — merged
+
+- PR: https://github.com/KeentGG/OpenInterview/pull/8
+- Merge commit: `8a713cb28ec1dc93ece064858747ab4bb82c0709`
+- Branch: `transition/nonroot-agent`
+- Worktree: `/home/keen/open_source/DeepInterview-worktrees/nonroot-agent` (removed after merge)
+- Final CI: https://github.com/KeentGG/OpenInterview/actions/runs/46163605956
+- Checks: 264 passed, 1 skipped; UID 10001, API health + trace write, offline model load, worker CLI, and `uv run` startup all passed.
+- Review: correctness, security, and test/durability reviews found no remaining issue.
+- Notes: agent API and worker run as `appuser`; recursive chown layers removed; image sizes dropped to API 1.29GB and worker 3.46GB. Trivy reports 0 HIGH/CRITICAL findings, including misconfigs.
 
 ## Plan — Item 1 Trust/security (planning pass, no product code touched)
 
