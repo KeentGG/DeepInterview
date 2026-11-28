@@ -3,6 +3,7 @@ import { Mic, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { RecentSessions } from "@/components/session/recent-sessions";
 
 /**
  * Voice Socratic mode entry point. Reuses the live interview voice loop
@@ -51,6 +52,11 @@ export function SocraticCta({ sessionId }: { sessionId?: string | null }) {
           </Button>
         </Link>
       </CardContent>
+      {!sessionId && (
+        <CardContent className="pt-0 pb-6">
+          <RecentSessions tone="dark" title="Or coach on a past interview" />
+        </CardContent>
+      )}
     </Card>
   );
 }
