@@ -78,6 +78,9 @@ jobs:
       - name: Install JS deps
         run: pnpm install
 
+      - name: Check agent lockfile is fresh
+        run: cd apps/agent && uv lock --check
+
       - name: Sync Python deps (agent)
         run: cd apps/agent && uv sync
 
@@ -101,6 +104,9 @@ jobs:
 
       # WP-12: the knowledge sidecar has its own uv project + offline tests
       # (naive RAG backend); run them here so the full stack is covered in CI.
+      - name: Check lightrag lockfile is fresh
+        run: uv --directory services/lightrag lock --check
+
       - name: Test lightrag sidecar
         run: uv --directory services/lightrag run pytest
 
