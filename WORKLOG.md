@@ -17,7 +17,7 @@ This file is the single source of truth for transition work. Update it after eve
   - [x] **Follow-up:** run the agent API and worker containers as non-root (`DS-0002`).
 - [ ] **2. Brand and conversion**
   - [x] Replace remaining user-facing DeepInterview branding and upstream clone links.
-  - [ ] Enable and configure fork Issues.
+  - [x] Enable and configure fork Issues.
 - [ ] **3. Retention instrumentation**
   - [ ] Measure completed interviews, report-to-coach clicks, repeat practice, cost, and local turn latency.
 - [ ] **4. Product differentiation**
@@ -34,8 +34,8 @@ This file is the single source of truth for transition work. Update it after eve
 - **Baseline:** main `8a713cb28ec1dc93ece064858747ab4bb82c0709`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Implemented — focused checks green; browser QA and fork Issues enablement pending.
-- **Notes:** User-facing branding and fork links are updated. Internal identifiers, persisted keys, and upstream attribution are unchanged; the hero mock uses a neutral session label (no unowned fork domain).
+- **Status:** Review/QA fixes applied and pushed; ready for re-review.
+- **Notes:** User-facing branding and fork links are updated. Internal identifiers, persisted keys, and upstream attribution are unchanged; the hero mock uses a neutral session label (no unowned fork domain). Fork Issues and private vulnerability reporting are enabled; Discussions is disabled, so community links route to Issues.
 
 ## Done
 
@@ -776,3 +776,35 @@ Goal: make the product unmistakably OpenInterview (fork `KeentGG/OpenInterview`)
 - EN + VI toggle: `appName` and landing subtitle render `OpenInterview` in both.
 - OG image renders the `OpenInterview` headline; `icon.svg`/`logo.svg` carry the new accessible names.
 - Fork Issues/Discussions still need the main-agent admin step; README Release badge shows an empty state until the fork cuts a tag (expected).
+
+### Review/QA fix round (2026-11-29)
+
+- **Fork settings:** Issues enabled; private vulnerability reporting enabled (`gh api repos/KeentGG/OpenInterview` → `has_issues: true`, `has_discussions: false`; private reporting is enabled in repository settings).
+- **Fix commit:** `de91b28878ff3805fc9063ef27d542375ea402e1` (`fix(brand): resolve review and mobile QA findings`).
+
+Findings and fixes:
+
+- `apps/web/components/interview/live-room.tsx` eyebrow still read `DEEPINTERVIEW ·`; changed to `OPENINTERVIEW ·`.
+- Discussions is intentionally disabled (`has_discussions: false`), so every fork Discussions link/contact was removed: footer Community column, README/VI Community list, CONTRIBUTING “Getting help”, and the issue-template contact config. Remaining community questions route to fork Issues; the issue chooser’s first contact is now “Questions & ideas” → `.../issues`.
+- `docs/AVATARS.md` “existing pack pattern” now links to [`../apps/web/lib/personas.ts`](../apps/web/lib/personas.ts) instead of the issue index.
+- 390px browser-QA overflow fixed: the nav right cluster had reached ~397px and the open-source grid/`<pre>` ~409px.
+  - Nav: the wordmark text is hidden below `480px` (the `BrandMark` icon remains, and the home link keeps `aria-label="OpenInterview"`); the right cluster is `shrink-0` so Theme/Menu/Start-free never collapse. All controls remain present.
+  - Open source: both `Reveal` grid children now carry `min-w-0`, so the code block scrolls inside the column instead of widening the page.
+
+Re-run checks (this round):
+
+| Check | Result |
+| --- | --- |
+| `pnpm --filter @deepinterview/web typecheck` | pass |
+| `pnpm --filter @deepinterview/web test` | pass (5 files, 16 tests) |
+| `pnpm build --filter '@deepinterview/web...'` | pass (3/3 tasks; 45.2s) |
+| No image rebuild | as requested |
+
+Audits:
+
+- `rg -n 'discussions'` (excluding lockfiles/CHANGELOG/WORKLOG) → no hits.
+- `rg -n 'DEEPINTERVIEW'` → only the kept `DEEPINTERVIEW_TEST_USE_ENV` test-env identifier.
+- `rg -n 'ngoanpv|deepinterview\.ai|deepinterview\.dev|discord\.gg|openinterview\.(ai|dev)'` → only the allowed README fork notice/upstream release/citation entries and `CITATION.cff`.
+- `apps/web/lib/personas.ts` exists for the new `docs/AVATARS.md` relative link.
+
+Remaining manual QA: re-check the 390px landing nav and open-source section in light/dark, plus the standard 1440px flow/EN-VI/OG pass. No blockers.
