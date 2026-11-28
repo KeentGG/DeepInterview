@@ -9,11 +9,12 @@ This file is the single source of truth for transition work. Update it after eve
 
 ## Tasks
 
-- [ ] **1. Trust and security**
+- [x] **1. Trust and security**
   - [x] Rebuild upstream PR #113 against current dependency advisories.
   - [x] Scan the fork with Trivy and record remaining accepted risk.
   - [x] Add web Docker-image build coverage (local image build verified).
-  - [ ] Verify fork Actions run after push (not pushed by implementer).
+  - [x] Verify fork Actions run after push.
+  - [ ] **Follow-up:** run the agent API and worker containers as non-root (`DS-0002`).
 - [ ] **2. Brand and conversion**
   - [ ] Replace remaining user-facing DeepInterview branding and upstream clone links.
   - [ ] Enable and configure fork Issues.
@@ -32,7 +33,7 @@ This file is the single source of truth for transition work. Update it after eve
 - **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/trust-security`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Implementation complete — focused checks green, awaiting independent review and CI
+- **Status:** Ready to merge — final CI and independent reviews are green
 - **Notes:** Thin ship flow is insufficient for dependency/security changes; use plan, implementation, focused checks, CI, and independent review.
 
 ## Done
@@ -321,8 +322,13 @@ Local rechecks after the fix (all in this worktree):
 - Implementation complete 2026-11-28 (DeepSeek Flash). Focused checks green,
   including `pnpm lint` after formatting `ae66eb5`; Trivy fs 0 HIGH/CRITICAL
   vulnerabilities, one accepted HIGH misconfig (DS-0002).
-- CI fix round complete 2026-11-28 (DeepSeek Flash): pinned Python 3.11/uv,
-  durable web-image boot smoke, and a Trivy vuln+secret gate. Replacement run
-  https://github.com/KeentGG/OpenInterview/actions/runs/46156714212 is green.
-  The final `uv lock --check` gate (`f0b7f84`) is pushed; its run is pending.
-  Awaiting independent security review.
+- CI and review complete 2026-11-28. Final head:
+  `f61da67724582e0fe927f243f36db625009561a6`.
+- Final CI: https://github.com/KeentGG/OpenInterview/actions/runs/46157428802
+  — all four jobs passed (`security`, `gitleaks`, `build`, `docker-build`).
+- Tests: 264 passed, 1 skipped (Vitest 46, agent 212, LightRAG 6).
+- Correctness review: no remaining confirmed issues.
+- Security audit: pass; 0 HIGH/CRITICAL vulnerabilities, 0 secrets, one accepted
+  HIGH misconfig (`DS-0002`, agent image root user) recorded above.
+- Test/durability review: no remaining gaps; Python 3.11 pin, web-image boot
+  smoke, Trivy vuln+secret gate, and both `uv lock --check` gates verified.
