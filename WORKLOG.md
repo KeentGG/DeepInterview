@@ -206,6 +206,19 @@ with two corrections: Next target is 16.4.6 (not PR's stale 16.3.8), pypdf floor
 | lightrag image build | success (`openinterview-lightrag:verify2`) |
 | web image build (`apps/web/Dockerfile`) | success (`openinterview-web:verify`) |
 | `pnpm lint` | Fails on 3 pre-existing unformatted files: `apps/web/app/prep/page.tsx`, `apps/web/components/prep/mastery-graph.tsx`, `apps/web/components/theme-toggle.tsx`. Confirmed at HEAD via `git show HEAD:<file> \| pnpm exec prettier --check --stdin-filepath <file>`; not touched by this change. |
+| `uv sync --extra rag --python 3.11` (lightrag) | Installed the optional stack, incl. torch 2.13.0 |
+| Rag import smoke | `starlette 1.10.0`, `fastapi 0.165.0`, `cryptography 50.0.2`, `urllib3 2.8.0`, `pypdf 7.2.0`, `lightrag-hku 1.5.8`, `transformers 5.24.1`, `sentence-transformers 6.3.0`, `mineru 4.2.3`, `gradio 6.32.0`, `raganything 1.3.1`; `import starlette, fastapi, cryptography, pypdf, transformers, sentence_transformers, mineru, gradio, raganything, lightrag` -> imports OK |
+| `RAG_BACKEND=lightrag` construct | `LightRAGBackend` constructed OK (skeleton; ingest/query remain NotImplemented) |
+| `uv run --python 3.11 pytest -q` (lightrag, rag extra installed) | 6 passed |
+
+Resolver rationale: the parent asked to confirm the newer-than-plan LightRAG versions
+rather than accept drift silently. They were selected by `uv lock` as the latest
+versions allowed by the existing ranges (plan examples came from PR #113's older
+lock, not from hard pins). All listed versions are 0-vulnerability under the
+2026-11-28 Trivy DB, the default FastAPI/Starlette test suite passes, and the
+exact extra stack imports and constructs `LightRAGBackend` with `RAG_BACKEND=lightrag`.
+No compatibility failure was observed, so no pin-back to the plan's example
+versions was needed.
 
 ### Trivy filesystem scan
 
@@ -238,10 +251,12 @@ other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
 ### Remaining risks
 
 - `DS-0002` agent image root user (accepted, above).
-- The optional `rag` extra is not installed in the default image and was not
-  smoke-run here (heavy ML stack); its lock closure is Trivy-clean and the
-  default NaiveRAG path passes tests. The `mineru[core]` extra warning predates
-  this refresh and remains a known opt-in risk.
+- The optional `rag` extra is not installed in the default image. It was installed
+  in the local venv for an import smoke: the exact stack imports and constructs
+  `LightRAGBackend` with `RAG_BACKEND=lightrag`; ingest/query remain skeleton
+  `NotImplementedError`s, so no end-to-end RAG query is claimed. Its lock closure
+  is Trivy-clean and the default NaiveRAG path passes tests. The `mineru[core]`
+  extra warning predates this refresh and remains a known opt-in risk.
 - CI/Actions were not run because this implementation was not pushed (per the
   brief); the new web-image step is locally verified by the Docker build.
 
