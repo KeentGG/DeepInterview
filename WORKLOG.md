@@ -15,6 +15,7 @@ This file is the single source of truth for transition work. Update it after eve
   - [x] Add web Docker-image build coverage (local image build verified).
   - [x] Verify fork Actions run after push.
   - [ ] **Follow-up:** run the agent API and worker containers as non-root (`DS-0002`).
+    Implemented on `transition/nonroot-agent`; awaiting independent review and merge.
 - [ ] **2. Brand and conversion**
   - [ ] Replace remaining user-facing DeepInterview branding and upstream clone links.
   - [ ] Enable and configure fork Issues.
@@ -28,12 +29,13 @@ This file is the single source of truth for transition work. Update it after eve
 
 ## Currently doing
 
-- **Item:** 1 follow-up — non-root agent image
-- **Branch:** Not created yet
-- **Worktree:** Not created yet
+- **Item:** 1 follow-up — non-root agent image (accepted `DS-0002`)
+- **Branch:** `transition/nonroot-agent`
+- **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/nonroot-agent`
+- **Baseline:** main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Queued
+- **Status:** Ready to merge — final CI and independent reviews are green
 - **Notes:** Close accepted `DS-0002` before moving to brand/conversion.
 
 ## Done
@@ -341,3 +343,313 @@ Local rechecks after the fix (all in this worktree):
   HIGH misconfig (`DS-0002`, agent image root user) recorded above.
 - Test/durability review: no remaining gaps; Python 3.11 pin, web-image boot
   smoke, Trivy vuln+secret gate, and both `uv lock --check` gates verified.
+
+## Plan — Item 1 follow-up: non-root agent image (planning pass, no product code touched)
+
+Goal: run the `api` and `worker` runtime stages of `apps/agent/Dockerfile` as a
+non-root user, clearing accepted Trivy HIGH misconfig `DS-0002`, without breaking
+installs, baked model weights, SQLite, trace writes, or LiveKit startup.
+Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
+
+### Startup / writable-path evidence (why the plan is shaped this way)
+
+- `api` stage CMD and the compose `agent-api` command both run `uv run uvicorn
+  deepinterview_agent.app:app --host 0.0.0.0 --port 8000` with `WORKDIR /app`.
+  `worker` CMD / compose `agent-worker` command run `uv run python -m
+  deepinterview_agent.worker start`. Port 8000 is unprivileged — no caps needed.
+- Runtime writes: `uv run` needs a writable project (`.venv` under `/app`) plus a
+  writable uv cache (`~/.cache/uv`); traces append to `TRACE_DIR` (default
+  `.deepinterview/traces`, i.e. `/app/.deepinterview`, created on first write by
+  `core/tracing.py:_append_event`); SQLite is opt-in via `SQLITE_PATH` (default
+  unset = in-memory) and `sqlite_repository.py` creates parent dirs on open.
+- The `worker-deps` model bake (`Plugin.download_files()` for silero +
+  turn-detector) currently runs as root with default `HOME=/root`, so weights
+  land in `/root/.cache`. If the runtime user cannot read them, the first live
+  session stalls on a re-download — so the bake must target the runtime user's
+  cache dir (see Decided below).
+- Healthchecks (`docker-compose.yml`) run `python -c <urllib stdlib>` — no
+  curl/wget needed, works unchanged as a non-root user.
+- Precedent: `services/lightrag/Dockerfile` creates `appuser --uid 10001`,
+  `chown -R appuser:appuser /app`, then `USER appuser`, and avoids `uv run` at
+  runtime (`.venv/bin/python -m ...`). The agent keeps `uv run` instead (see
+  Decided) so `docker-compose.yml` commands need no change.
+
+### Implementer work (DeepSeek Flash)
+
+1. `apps/agent/Dockerfile`, `base` stage, after `WORKDIR /app` — create the
+   runtime user early and point caches at its home (BEFORE any bake step):
+   `RUN useradd --create-home --uid 10001 appuser`
+   `ENV HOME=/home/appuser HF_HOME=/home/appuser/.cache/huggingface
+   UV_CACHE_DIR=/home/appuser/.cache/uv`
+   (Do NOT add `USER` in `base` or `worker-deps` — installs and the model bake
+   stay root; only file placement changes via the env above.)
+2. `api` stage, after the final `RUN uv sync ...` and before `EXPOSE 8000`:
+   `RUN chown -R appuser:appuser /app /home/appuser`
+   `USER appuser`
+   Leave `CMD ["uv", "run", "uvicorn", ...]` exactly as-is.
+3. `worker` stage, after the final `RUN uv sync ...` and before the `CMD` comment:
+   `RUN chown -R appuser:appuser /app /home/appuser`
+   `USER appuser`
+   Leave `CMD ["uv", "run", "python", "-m", ...]` exactly as-is.
+4. No changes to `docker-compose.yml` (commands, healthchecks, ports), no volume
+   additions, no application code changes.
+5. Focused checks only (all in this worktree):
+   - `docker build -f apps/agent/Dockerfile --target api -t agent-api:nonroot .`
+   - `docker build -f apps/agent/Dockerfile --target worker -t agent-worker:nonroot .`
+   - `docker run --rm agent-api:nonroot id -u` -> `10001`; same for worker image.
+   - Boot api: `docker run -d -p 8000:8000 agent-api:nonroot`, poll
+     `http://127.0.0.1:8000/health` until 200 (15s start period mirrors compose);
+     `docker logs` must show no `Permission denied`; then
+     `docker exec <c> touch /app/.deepinterview/.writetest` (trace dir writable).
+   - Worker (no live keys needed): `docker run --rm agent-worker:nonroot uv run
+     python -c "import deepinterview_agent.worker"` must exit 0 as appuser, and
+     the baked weights must be readable: `docker run --rm agent-worker:nonroot
+     ls -l /home/appuser/.cache` shows appuser-owned model files (no re-download
+     stall at first session).
+   - `docker compose config -q` and
+     `docker compose --profile local --profile live config -q`.
+   - Trivy DS-0002 gate: `docker run --rm -v "$PWD:/repo:ro"
+     aquasec/trivy:0.76.2 fs --severity HIGH,CRITICAL --scanners misconfig
+     --skip-dirs .git --skip-dirs node_modules --skip-dirs .venv --skip-dirs
+     .next /repo` (or `--scanners vuln,secret,misconfig`) shows 0 HIGH/CRITICAL
+     misconfigs; `apps/agent/Dockerfile` row must be clean.
+   - Agent unit suite unchanged: `cd apps/agent && uv sync && uv run pytest -q`
+     (212 passed, 1 skipped expected).
+6. Stop/rollback conditions: revert the single Dockerfile commit (root images
+   rebuild identically) if ANY of these hold — api `/health` does not reach 200
+   as non-root; logs show `Permission denied` on `.venv`, trace dir, or cache;
+   worker import fails as appuser; baked weights are missing/root-owned and the
+   worker attempts a runtime download; Trivy still flags `DS-0002`.
+
+### Decisions
+
+- Decided: runtime user is `appuser --uid 10001`, matching
+  `services/lightrag/Dockerfile` (one convention, no new uid scheme).
+- Decided: `USER appuser` appears ONLY in the final `api` and `worker` stages;
+  `base` and `worker-deps` (builder) stages stay root so `uv sync` and the model
+  bake need no privilege rework.
+- Decided: user creation + `HOME`/`HF_HOME`/`UV_CACHE_DIR` env live in `base`
+  BEFORE the `worker-deps` bake, so silero/turn-detector weights land in
+  `/home/appuser/.cache` (not `/root/.cache`) and are readable at runtime.
+- Decided: keep runtime invocation as `uv run` (Dockerfile CMDs and compose
+  `command:` blocks unchanged). Ownership (`chown /app /home/appuser`) plus the
+  writable `UV_CACHE_DIR` make `uv run` work as non-root; this is the smallest
+  diff. The LightRAG `.venv/bin/python` switch is the documented fallback if
+  `uv run` proves uncooperative as appuser (it would then require paired
+  Dockerfile CMD + compose command edits).
+- Decided: each final stage does `chown -R appuser:appuser /app /home/appuser`
+  (project + venv + trace dir + all caches), covering trace writes, `uv` cache,
+  and HF/torch/LiveKit plugin caches with no extra `mkdir` or volume changes.
+- Decided: no `docker-compose.yml` changes in this item (ports are unprivileged,
+  healthchecks are stdlib-only, commands keep working). An operator-set
+  `SQLITE_PATH` outside `/app` stays the operator's responsibility (mount a
+  writable volume); the default in-memory store and `/app`-relative paths need
+  nothing.
+- Decided: no `.github/workflows/ci.yml` edits in this planning pass. Known gap
+  for the implementer to report: `docker-build` only builds the `api` target, so
+  the `worker` stage change is NOT covered by CI — recommend adding a
+  worker-target build step (and a non-root `/health` boot smoke mirroring the
+  web smoke) as a CI follow-up, owned by the ship lead. The `security` job is
+  unaffected (it scans `vuln,secret` only, and `DS-0002` stays out of that gate).
+- Decided: Trivy verification for this item is the `misconfig` scanner over the
+  Dockerfile/filesystem (where `DS-0002` lives), not a heavier `trivy image`
+  scan; same pinned `aquasec/trivy:0.76.2` invocation shape as the trust ship.
+- Decided: planning pass edits NOTHING except `WORKLOG.md` (no Dockerfiles,
+  workflows, or application code here); the implementer makes all product edits.
+- Decided: merge requires an independent (non-implementer, via Main) re-run of
+  the Trivy misconfig gate + review of the Dockerfile diff, with evidence
+  recorded in this log before the brand/conversion item starts.
+
+## Implementation evidence — Item 1 follow-up: non-root agent image (2026-11-28)
+
+- Branch: `transition/nonroot-agent`
+- Worktree: `/home/keen/open_source/DeepInterview-worktrees/nonroot-agent`
+- Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`
+- Commits:
+  - `38892e2f0935bdc954815dc27a5984e312240499` docs(worklog): plan non-root
+    agent image follow-up
+  - `752eb5002f7bc228d54fe2f530a8da69d2e015c1` build(agent): run the api and
+    worker images as non-root appuser
+  - `4f2367928271b5e229cb9a7b61279eb860f95e6e` ci: gate HIGH/CRITICAL
+    Dockerfile misconfigs
+  - `git log 25b998a8..HEAD` lists every commit, including the docs-only
+    evidence updates and the runner-disk CI step
+- Changed files: `apps/agent/Dockerfile`, `.github/workflows/ci.yml`,
+  `WORKLOG.md`.
+
+### What changed
+
+- `apps/agent/Dockerfile` `base` stage, after `WORKDIR /app`:
+  `useradd --create-home --uid 10001 appuser && chown appuser:appuser /app`,
+  then `HOME=/home/appuser`, `HF_HOME=/home/appuser/.cache/huggingface`,
+  `UV_CACHE_DIR=/home/appuser/.cache/uv`, then `USER appuser`. Every later
+  stage inherits that user, so `uv sync` and the `worker-deps` model bake run
+  as appuser and the uv cache / silero+turn-detector weights land under its
+  home instead of `/root/.cache`.
+- `COPY --chown=appuser:appuser` on the lockfiles and `apps/agent/src` keeps
+  every project file appuser-owned, so the final stages need no recursive
+  `chown` layer (only `EXPOSE`/`CMD` follow their last `uv sync`). CMDs,
+  `docker-compose.yml` commands, healthchecks, ports, and application code are
+  unchanged; no CMD change was needed because `uv run` works as appuser once
+  `/app` and the caches are owned by it.
+- `.github/workflows/ci.yml` `docker-build`: the API step now uses `load: true`
+  with tag `openinterview-agent-api:ci`; a new step builds/loads the `worker`
+  target as `openinterview-agent-worker:ci` with its own gha cache scope. The
+  smoke step boots the API, polls `/health`, fails on any `Permission denied`
+  log line, then writes a real trace with the baked `.venv/bin/python` (no
+  `uv run`) and asserts the JSONL exists, contains `trace_start`, and is owned
+  by uid 10001. The worker step runs the baked venv with `--network none` and
+  `HF_HUB_OFFLINE=1`: it imports the worker plus silero/turn-detector, calls
+  `Plugin.download_files()` on every registered plugin, and calls
+  `silero.VAD.load()`, all as uid 10001. Two further steps cover the real
+  startup paths: offline `.venv/bin/python -m deepinterview_agent.worker
+  --help`, and the compose/CMD path `uv run python -c "import
+  deepinterview_agent.worker, livekit.plugins.silero"` with the network
+  available. A `Free runner disk space` step
+  removes unused preinstalled toolchains first. The lightrag and web steps are
+  unchanged.
+- `.github/workflows/ci.yml` `security`: the Trivy gate now scans
+  `vuln,secret,misconfig` at HIGH/CRITICAL. With `DS-0002` fixed and the whole
+  repo verified at 0 findings under that exact command, a future root-user
+  regression fails CI directly; the stale "accepted DS-0002 stays out of this
+  gate" comment is corrected.
+
+### Focused checks (all run in this worktree)
+
+| Check | Result |
+| --- | --- |
+| `docker build -f apps/agent/Dockerfile --target api -t openinterview-agent-api:nonroot .` | success (2m00s) |
+| `docker build -f apps/agent/Dockerfile --target worker -t openinterview-agent-worker:nonroot .` | success (5m04s). A first attempt succeeded through `chown` and failed only while unpacking the image because the host disk filled; freeing old build cache and rerunning the same build (no code change) produced the image |
+| `docker run --rm openinterview-agent-api:nonroot id -u` | `10001` (`id -un` = `appuser`) |
+| `docker run --rm openinterview-agent-worker:nonroot id -u` | `10001` (`id -un` = `appuser`) |
+| API boot (`-d --name agent-api-smoke -p 8000:8000`) + `curl /health` | `200 {"ok":true}` after 7 polls; `docker exec ... id -u` = 10001 |
+| `docker logs agent-api-smoke \| grep -i "permission denied"` | no match |
+| `docker exec agent-api-smoke mkdir -p /app/.deepinterview && touch .writetest` | created as `appuser:appuser` |
+| App-level trace write in the API image (`start_trace` + `add_event`) | wrote `/app/.deepinterview/traces/tr_de9beb20d77c.jsonl` as `appuser:appuser` |
+| `docker exec agent-api-smoke uv run python -c "import deepinterview_agent.app"` | import ok as uid 10001 |
+| `docker run --rm openinterview-agent-worker:nonroot uv run python -c "import deepinterview_agent.worker"` | import ok as uid 10001 |
+| Baked weights location and ownership | `HF_HOME` holds 461M of `models--livekit--turn-detector` blobs (largest 396MB) and `silero_vad.onnx` (2.3MB) is in `.venv`; `find /home/appuser ! -user appuser` = 0 entries; `/root/.cache` absent |
+| Offline re-bake as appuser: `docker run --rm --network none -e HF_HUB_OFFLINE=1 ... .venv/bin/python -c "…Plugin.download_files()…"` | succeeds from the baked cache as uid 10001 — no runtime download |
+| `docker compose config -q` and `docker compose --profile local --profile live config -q` | both pass |
+| Trivy `fs --severity HIGH,CRITICAL --scanners vuln,secret,misconfig` (`aquasec/trivy:0.76.2`, report `2026-11-28T15:26:38Z`) | exit 0; 0 findings on all six targets; `apps/agent/Dockerfile` misconfigs = 0, so `DS-0002` is gone |
+| Exact CI `security` gate command (`--scanners vuln,secret,misconfig --exit-code 1`, `--no-progress`, same skip dirs) | exit 0 |
+| Trivy misconfig, all severities (agent Dockerfile only) | only `DS-0026 LOW` (No HEALTHCHECK; compose defines the healthcheck) remains |
+| `cd apps/agent && UV_PYTHON=3.11 uv sync --frozen && uv run pytest -q` | 212 passed, 1 skipped (baseline unchanged) |
+| Workflow YAML parse + `rhysd/actionlint:latest` | jobs `security`, `gitleaks`, `build`, `docker-build`; actionlint exit 0 |
+
+### Review fix round 1 — PR #8 (2026-11-28)
+
+Independent review found three issues; all fixed in this round. The checklist
+below supersedes the Dockerfile/CI description and build rows above; the other
+previous checks were re-run against the final images.
+
+Findings and fixes:
+
+1. Each final stage ran `chown -R appuser:appuser /app /home/appuser`, which
+   rewrote the whole venv + baked-weights tree into a ~3.2GB layer, duplicated
+   in both images, and dominated build/export time. Fix: create the user and
+   chown only the empty `/app` in `base`, `USER appuser` before every install
+   and the model bake, `COPY --chown=appuser:appuser` for the lockfiles and
+   source, and no chown in `api`/`worker`.
+2. The CI worker proof used `uv run` and asserted nothing about the baked
+   weights, so it did not show the image works without network. Fix: run the
+   baked `.venv/bin/python` with `--network none` and `HF_HUB_OFFLINE=1`,
+   import the worker + silero + turn_detector, call `Plugin.download_files()`
+   and `silero.VAD.load()`, and assert uid 10001.
+3. The API smoke only checked `/health`; nothing proved the app can write
+   traces as the runtime user. Fix: write a real trace with
+   `.venv/bin/python` and assert the JSONL exists, contains `trace_start`, and
+   is owned by uid 10001.
+
+Evidence (final images, local host):
+
+| Check | Result |
+| --- | --- |
+| `docker build --target api` | success, 1m11s (was 2m00s) |
+| `docker build --target worker` | success, 1m38s (was 5m04s; no export retry) |
+| image sizes | api 1.29GB (was 2.31GB), worker 3.46GB (was 6.66GB) |
+| `docker history --no-trunc <img> \| grep -c 'chown -R'` | 0 for both images; the 3.2GB layer is gone |
+| ownership in both images | `/app`, `/app/.venv`, `/app/src`, `pyproject.toml`, `/home/appuser` and the HF cache are `appuser`-owned; 0 files under `/home/appuser` owned by another user |
+| exact CI API smoke script (tag substituted) run locally | pass: `/health` 200, no `Permission denied`, trace `/app/.deepinterview/traces/tr_44b1458ede86.jsonl` owned by uid 10001 and contains `trace_start` |
+| exact CI worker script (tag substituted) run locally | pass: `worker import + offline model load ok as uid 10001` with `--network none` and `HF_HUB_OFFLINE=1` |
+| `docker run --rm <worker> .venv/bin/python` with `silero.VAD.load()` offline | loads a `VAD` |
+| `docker run --rm <img> id -u` | 10001 for both |
+| Trivy `fs --severity HIGH,CRITICAL --scanners vuln,secret,misconfig` (`2026-11-28T15:49:23Z`) | exit 0, 0 findings on all six targets |
+| `docker compose config -q` / `--profile local --profile live config -q` | both pass |
+| Workflow YAML parse + `rhysd/actionlint:latest` | pass (exit 0) |
+| `uv sync --frozen` + `pytest -q` (agent) | 212 passed, 1 skipped |
+
+Notes: `uv run` still works at runtime (CMD unchanged) because `/app`, the venv
+and the caches are appuser-owned from creation. The CI shell scripts were
+extracted from the workflow and executed verbatim with only the local image tag
+substituted; PR #8's CI run for the new head has not been observed locally —
+check it after the push.
+
+### Final review guards — startup paths (2026-11-29)
+
+Final review found no CI proof of the two startup paths that actually run, so
+two steps now run against the already-built worker image (no rebuild, no
+application code change):
+
+1. Offline CLI: `docker run --rm --network none -e HF_HUB_OFFLINE=1
+   openinterview-agent-worker:ci .venv/bin/python -m deepinterview_agent.worker
+   --help` — the module entrypoint must start and print its commands without
+   network or a weight/dependency fetch.
+2. Networked `uv run` (the compose/CMD path): `docker run --rm
+   openinterview-agent-worker:ci uv run python -c "import
+   deepinterview_agent.worker, livekit.plugins.silero"`.
+
+Evidence — both scripts extracted from the workflow and run verbatim against
+the existing `openinterview-agent-worker:nonroot` image (tag substituted; no
+rebuild):
+
+| Check | Result |
+| --- | --- |
+| offline `python -m deepinterview_agent.worker --help` | exit 0; usage banner and `console`/`start`/`dev`/`connect`/`download-files` commands printed |
+| `uv run python -c "import …worker, livekit.plugins.silero"` with network | exit 0; uv synced its dev deps from PyPI, proving the online runtime path |
+| workflow YAML parse + `rhysd/actionlint:latest` | pass (exit 0) |
+
+### Final review and CI outcome
+
+- PR: https://github.com/KeentGG/OpenInterview/pull/8
+- Final reviewed head: `d807a94b9c65bc364183e1edc134c3f543611f27`
+- CI: https://github.com/KeentGG/OpenInterview/actions/runs/46162990617 — all
+  four jobs passed (`security`, `gitleaks`, `build`, `docker-build`).
+- Tests: 264 passed, 1 skipped (Vitest 46, agent 212, LightRAG 6).
+- Correctness review: both image-size and worker-proof findings fixed; no
+  remaining confirmed issue.
+- Security audit: pass; Trivy reports 0 HIGH/CRITICAL vulnerabilities, secrets,
+  or misconfigs. `DS-0002` is gone.
+- Test/durability review: offline model load, trace ownership, baked venv,
+  offline worker CLI, and real `uv run` startup path all verified.
+
+### Deviations, observations and remaining risks
+
+- Deviated from the plan's "the `security` job is unaffected": its Trivy gate
+  now includes the `misconfig` scanner. The plan excluded it only because
+  `DS-0002` was an accepted finding; with the agent image fixed and the exact
+  gate command verified at exit 0, including it makes the fix durable in CI and
+  removes a now-false comment. No other `security`/`gitleaks`/`build` step
+  changed.
+- `uv run` at runtime performs an implicit `uv sync` and installs dev
+  dependencies from PyPI on first container start (observed: ruff/pygments
+  downloaded in the API and worker smoke logs). This predates this item — the
+  root image behaved the same — and is unchanged here; it is why the venv and
+  uv cache must be writable by the runtime user. Requiring egress at boot is a
+  pre-existing deployment characteristic. The plan's documented fallback
+  (`.venv/bin/python` plus paired compose edits) was not needed because
+  `uv run` works as appuser.
+- `DS-0026` (LOW, no Dockerfile `HEALTHCHECK`) remains by design: compose
+  supplies healthchecks for both agent services. The closing gate is
+  HIGH/CRITICAL only.
+- The worker image is 3.46GB on disk and its build takes ~1m40s locally after
+  the chown-layer removal (api: 1.29GB / ~1m11s). The docker-build job frees
+  unused runner toolchains before building.
+- Not run here: bringing up the full compose stack (lightrag + local models)
+  and any LiveKit `start` with real keys — both are outside this item and need
+  external services; the module import plus the offline weight check cover the
+  changed paths.
+- Final head `d807a94` is pushed to PR #8. CI run
+  https://github.com/KeentGG/OpenInterview/actions/runs/46162990617 is green,
+  and independent correctness, security, and test reviews found no remaining
+  issue. Ready to merge.

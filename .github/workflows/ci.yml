@@ -12,20 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Dependency/secret gate. Trivy is pinned to the same version used for the
-  # local verification; only vuln+secret findings fail the job so the accepted
-  # DS-0002 agent-Dockerfile root-user misconfig stays out of this gate.
+  # Dependency/secret/misconfig gate. Trivy is pinned to the same version used
+  # for the local verification; HIGH/CRITICAL findings fail the job. Dockerfile
+  # misconfigs are included now that DS-0002 (agent image root user) is fixed,
+  # so a regression is caught here as well as by the docker-build UID checks.
   security:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Trivy HIGH/CRITICAL vulnerability and secret scan
+      - name: Trivy HIGH/CRITICAL vulnerability, secret and misconfiguration scan
         run: |
           docker run --rm \
             -v "$PWD:/repo:ro" \
             aquasec/trivy:0.76.2 fs \
             --severity HIGH,CRITICAL \
-            --scanners vuln,secret \
+            --scanners vuln,secret,misconfig \
             --skip-dirs .git --skip-dirs node_modules \
             --skip-dirs .venv --skip-dirs .next \
             --no-progress \
@@ -129,6 +130,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Four images, one of them the multi-GB worker (livekit + torch + baked
+      # weights), must fit on the runner while buildkit holds their layers.
+      # Drop the preinstalled toolchains this job never uses first.
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
       - name: Build agent API image
         uses: docker/build-push-action@v6
         with:
@@ -136,8 +146,123 @@ jobs:
           file: apps/agent/Dockerfile
           target: api
           push: false
+          load: true
+          tags: openinterview-agent-api:ci
           cache-from: type=gha,scope=agent-api
           cache-to: type=gha,mode=max,scope=agent-api
+
+      # The worker is a separate stage (livekit extra + baked model weights) and
+      # previously never built in CI, so its Dockerfile edits could rot unseen.
+      - name: Build agent worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/agent/Dockerfile
+          target: worker
+          push: false
+          load: true
+          tags: openinterview-agent-worker:ci
+          cache-from: type=gha,scope=agent-worker
+          cache-to: type=gha,mode=max,scope=agent-worker
+
+      # The agent images run as `appuser` (uid 10001). A regression to root is
+      # silent at build time, so assert the user on both loaded images.
+      - name: Verify agent images run as non-root
+        run: |
+          set -euo pipefail
+          for image in openinterview-agent-api:ci openinterview-agent-worker:ci; do
+            uid="$(docker run --rm "$image" id -u)"
+            if [ "$uid" != "10001" ]; then
+              echo "$image runs as uid $uid, expected 10001" >&2
+              exit 1
+            fi
+            echo "$image runs as uid $uid"
+          done
+
+      # Boot the non-root API, require /health, and prove the baked venv can
+      # write a trace as the runtime user. Any `Permission denied` in the logs
+      # fails the smoke.
+      - name: Smoke-test agent API image
+        run: |
+          set -euo pipefail
+          docker rm -f agent-api-smoke >/dev/null 2>&1 || true
+          trap 'docker rm -f agent-api-smoke >/dev/null 2>&1 || true' EXIT
+          docker run -d --name agent-api-smoke -p 8000:8000 openinterview-agent-api:ci >/dev/null
+          ok=0
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "Agent API health check failed" >&2
+            docker logs agent-api-smoke >&2 || true
+            exit 1
+          fi
+          if docker logs agent-api-smoke 2>&1 | grep -i "permission denied"; then
+            echo "Agent API logged a permission error" >&2
+            exit 1
+          fi
+          # Real trace write through the app tracing module, using the baked
+          # venv directly (not `uv run`), then assert the JSONL file exists and
+          # belongs to the runtime uid.
+          trace_id="$(docker exec agent-api-smoke .venv/bin/python -c '
+          from deepinterview_agent.core.tracing import add_event, start_trace
+
+          with start_trace("ci-smoke") as trace_id:
+              add_event("ci-smoke", {"ok": True})
+          print(trace_id)
+          ')"
+          trace_file="/app/.deepinterview/traces/${trace_id}.jsonl"
+          docker exec agent-api-smoke test -s "$trace_file"
+          owner_uid="$(docker exec agent-api-smoke stat -c %u "$trace_file")"
+          if [ "$owner_uid" != "10001" ]; then
+            echo "Trace file $trace_file owned by uid $owner_uid, expected 10001" >&2
+            exit 1
+          fi
+          docker exec agent-api-smoke grep -q "trace_start" "$trace_file"
+          echo "Agent API healthy as uid $(docker exec agent-api-smoke id -u); trace $trace_file owned by uid $owner_uid"
+
+      # No `uv run` here: the baked venv must work as-is and offline. Importing
+      # the worker plus both plugins, pulling their files from the baked cache,
+      # and loading the Silero VAD proves the weights are readable by appuser
+      # with the network disabled.
+      - name: Verify agent worker loads baked models offline as non-root
+        run: |
+          set -euo pipefail
+          docker run --rm --network none -e HF_HUB_OFFLINE=1 \
+            openinterview-agent-worker:ci \
+            .venv/bin/python -c '
+          import os
+
+          import deepinterview_agent.worker
+          from livekit.agents.plugin import Plugin
+          from livekit.plugins import silero, turn_detector
+
+          assert os.getuid() == 10001, os.getuid()
+          for plugin in Plugin.registered_plugins:
+              plugin.download_files()
+          silero.VAD.load()
+          print("worker import + offline model load ok as uid", os.getuid())
+          '
+
+      # The two real startup paths, against the same built image: the worker CLI
+      # must come up offline (no weight or dependency fetch), and the compose/
+      # CMD `uv run` path must import the worker with the network available.
+      - name: Verify agent worker CLI starts offline
+        run: |
+          set -euo pipefail
+          docker run --rm --network none -e HF_HUB_OFFLINE=1 \
+            openinterview-agent-worker:ci \
+            .venv/bin/python -m deepinterview_agent.worker --help
+
+      - name: Verify agent worker `uv run` import with network
+        run: |
+          set -euo pipefail
+          docker run --rm openinterview-agent-worker:ci \
+            uv run python -c "import deepinterview_agent.worker, livekit.plugins.silero"
 
       - name: Build lightrag image
         uses: docker/build-push-action@v6
