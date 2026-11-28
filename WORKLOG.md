@@ -35,7 +35,7 @@ This file is the single source of truth for transition work. Update it after eve
 - **Baseline:** main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Implementation complete 2026-11-28 (DeepSeek Flash). Both agent images run as `appuser` (uid 10001); Trivy misconfig `DS-0002` is cleared; CI now builds/loads both targets and checks non-root execution, an offline baked-model load, and a real trace write. PR #8 review fix round 1 applied (removed the recursive chown layers, tightened the CI proofs). Awaiting review/merge.
+- **Status:** Ready to merge — final CI and independent reviews are green
 - **Notes:** Close accepted `DS-0002` before moving to brand/conversion.
 
 ## Done
@@ -609,6 +609,20 @@ rebuild):
 | `uv run python -c "import …worker, livekit.plugins.silero"` with network | exit 0; uv synced its dev deps from PyPI, proving the online runtime path |
 | workflow YAML parse + `rhysd/actionlint:latest` | pass (exit 0) |
 
+### Final review and CI outcome
+
+- PR: https://github.com/KeentGG/OpenInterview/pull/8
+- Final reviewed head: `d807a94b9c65bc364183e1edc134c3f543611f27`
+- CI: https://github.com/KeentGG/OpenInterview/actions/runs/46162990617 — all
+  four jobs passed (`security`, `gitleaks`, `build`, `docker-build`).
+- Tests: 264 passed, 1 skipped (Vitest 46, agent 212, LightRAG 6).
+- Correctness review: both image-size and worker-proof findings fixed; no
+  remaining confirmed issue.
+- Security audit: pass; Trivy reports 0 HIGH/CRITICAL vulnerabilities, secrets,
+  or misconfigs. `DS-0002` is gone.
+- Test/durability review: offline model load, trace ownership, baked venv,
+  offline worker CLI, and real `uv run` startup path all verified.
+
 ### Deviations, observations and remaining risks
 
 - Deviated from the plan's "the `security` job is unaffected": its Trivy gate
@@ -630,13 +644,12 @@ rebuild):
   HIGH/CRITICAL only.
 - The worker image is 3.46GB on disk and its build takes ~1m40s locally after
   the chown-layer removal (api: 1.29GB / ~1m11s). The docker-build job frees
-  unused runner toolchains before building; PR #8's CI result for this new head
-  has not been observed in the worktree — check the run after the push.
+  unused runner toolchains before building.
 - Not run here: bringing up the full compose stack (lightrag + local models)
   and any LiveKit `start` with real keys — both are outside this item and need
   external services; the module import plus the offline weight check cover the
   changed paths.
-- This fix round is pushed to `fork/transition/nonroot-agent`, the head of
-  PR #8 (opened by the ship lead); the implementer did not merge it. An
-  independent (non-implementer) re-run of the Trivy misconfig gate and a review
-  of the final diff are still required before merge.
+- Final head `d807a94` is pushed to PR #8. CI run
+  https://github.com/KeentGG/OpenInterview/actions/runs/46162990617 is green,
+  and independent correctness, security, and test reviews found no remaining
+  issue. Ready to merge.
