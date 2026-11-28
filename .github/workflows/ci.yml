@@ -179,17 +179,18 @@ jobs:
             echo "$image runs as uid $uid"
           done
 
-      # Boot the non-root API and require /health, mirroring the compose
-      # start_period. Any `Permission denied` in the logs fails the smoke.
+      # Boot the non-root API, require /health, and prove the baked venv can
+      # write a trace as the runtime user. Any `Permission denied` in the logs
+      # fails the smoke.
       - name: Smoke-test agent API image
         run: |
           set -euo pipefail
           docker rm -f agent-api-smoke >/dev/null 2>&1 || true
           trap 'docker rm -f agent-api-smoke >/dev/null 2>&1 || true' EXIT
-          docker run -d --name agent-api-smoke -p 8000:8000 openinterview-agent-api:ci
+          docker run -d --name agent-api-smoke -p 8000:8000 openinterview-agent-api:ci >/dev/null
           ok=0
           for _ in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
               ok=1
               break
             fi
@@ -204,15 +205,48 @@ jobs:
             echo "Agent API logged a permission error" >&2
             exit 1
           fi
-          echo "Agent API healthy as uid $(docker exec agent-api-smoke id -u)"
+          # Real trace write through the app tracing module, using the baked
+          # venv directly (not `uv run`), then assert the JSONL file exists and
+          # belongs to the runtime uid.
+          trace_id="$(docker exec agent-api-smoke .venv/bin/python -c '
+          from deepinterview_agent.core.tracing import add_event, start_trace
 
-      # The worker needs live keys to `start`, but importing the module proves
-      # the livekit extra, the baked weights' paths and the non-root venv work.
-      - name: Verify agent worker imports as non-root
+          with start_trace("ci-smoke") as trace_id:
+              add_event("ci-smoke", {"ok": True})
+          print(trace_id)
+          ')"
+          trace_file="/app/.deepinterview/traces/${trace_id}.jsonl"
+          docker exec agent-api-smoke test -s "$trace_file"
+          owner_uid="$(docker exec agent-api-smoke stat -c %u "$trace_file")"
+          if [ "$owner_uid" != "10001" ]; then
+            echo "Trace file $trace_file owned by uid $owner_uid, expected 10001" >&2
+            exit 1
+          fi
+          docker exec agent-api-smoke grep -q "trace_start" "$trace_file"
+          echo "Agent API healthy as uid $(docker exec agent-api-smoke id -u); trace $trace_file owned by uid $owner_uid"
+
+      # No `uv run` here: the baked venv must work as-is and offline. Importing
+      # the worker plus both plugins, pulling their files from the baked cache,
+      # and loading the Silero VAD proves the weights are readable by appuser
+      # with the network disabled.
+      - name: Verify agent worker loads baked models offline as non-root
         run: |
           set -euo pipefail
-          docker run --rm openinterview-agent-worker:ci \
-            uv run python -c "import deepinterview_agent.worker"
+          docker run --rm --network none -e HF_HUB_OFFLINE=1 \
+            openinterview-agent-worker:ci \
+            .venv/bin/python -c '
+          import os
+
+          import deepinterview_agent.worker
+          from livekit.agents.plugin import Plugin
+          from livekit.plugins import silero, turn_detector
+
+          assert os.getuid() == 10001, os.getuid()
+          for plugin in Plugin.registered_plugins:
+              plugin.download_files()
+          silero.VAD.load()
+          print("worker import + offline model load ok as uid", os.getuid())
+          '
 
       - name: Build lightrag image
         uses: docker/build-push-action@v6
