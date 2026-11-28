@@ -28,17 +28,26 @@ This file is the single source of truth for transition work. Update it after eve
 
 ## Currently doing
 
-- **Item:** 1 — Trust and security
-- **Branch:** `transition/trust-security`
-- **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/trust-security`
+- **Item:** 1 follow-up — non-root agent image
+- **Branch:** Not created yet
+- **Worktree:** Not created yet
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Ready to merge — final CI and independent reviews are green
-- **Notes:** Thin ship flow is insufficient for dependency/security changes; use plan, implementation, focused checks, CI, and independent review.
+- **Status:** Queued
+- **Notes:** Close accepted `DS-0002` before moving to brand/conversion.
 
 ## Done
 
-_None recorded yet._
+### 1. Trust and security — merged
+
+- PR: https://github.com/KeentGG/OpenInterview/pull/7
+- Merge commit: `89bdf76cf42abf70f9487adf765ca34750ec3f82`
+- Branch: `transition/trust-security`
+- Worktree: `/home/keen/open_source/DeepInterview-worktrees/trust-security` (removed after merge)
+- Final CI: https://github.com/KeentGG/OpenInterview/actions/runs/46157866147
+- Checks: 264 passed, 1 skipped; security, gitleaks, build, and Docker smoke all passed.
+- Review: correctness, security, and test/durability reviews found no remaining issue.
+- Notes: Next 16.4.6 and Python locks are current; Trivy reports 0 HIGH/CRITICAL vulnerabilities and 0 secrets. `DS-0002` remains as the next follow-up.
 
 ## Plan — Item 1 Trust/security (planning pass, no product code touched)
 
@@ -322,9 +331,9 @@ Local rechecks after the fix (all in this worktree):
 - Implementation complete 2026-11-28 (DeepSeek Flash). Focused checks green,
   including `pnpm lint` after formatting `ae66eb5`; Trivy fs 0 HIGH/CRITICAL
   vulnerabilities, one accepted HIGH misconfig (DS-0002).
-- CI and review complete 2026-11-28. Final head:
-  `f61da67724582e0fe927f243f36db625009561a6`.
-- Final CI: https://github.com/KeentGG/OpenInterview/actions/runs/46157428802
+- CI and review complete 2026-11-28. Final reviewed head:
+  `fd9046feb1f375035905a7b3fa043acf43cde7b4`.
+- Final CI: https://github.com/KeentGG/OpenInterview/actions/runs/46157866147
   — all four jobs passed (`security`, `gitleaks`, `build`, `docker-build`).
 - Tests: 264 passed, 1 skipped (Vitest 46, agent 212, LightRAG 6).
 - Correctness review: no remaining confirmed issues.
