@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     # and covers 32 languages incl. vi. Override via ELEVENLABS_MODEL.
     elevenlabs_model: str = "eleven_flash_v2_5"
 
+    # Cartesia delivery controls. Empty voice = plugin default (Katie).
+    # Speed 0.6-2.0 on sonic-3 (1.0 = normal); emotion is one of Cartesia's
+    # generation_config emotions (Calm, Neutral, Contemplative, ...).
+    # buffer=sentence flushes every sentence straight to Cartesia with zero
+    # buffering (lowest latency); buffer=cartesia lets Cartesia's own buffer
+    # see a phrase ahead so it can pace and pause naturally.
+    cartesia_voice_id: str | None = None
+    cartesia_speed: float | None = None
+    cartesia_emotion: str | None = None
+    cartesia_buffer: str = "sentence"
+
     # --- local (self-hosted) model servers ------------------------------------
     # The "runs 100% local, no cloud model keys" path. All three speak the
     # OpenAI HTTP shape, so they reuse the already-installed openai SDK +
@@ -126,6 +137,10 @@ class Settings(BaseSettings):
     # --- supabase ------------------------------------------------------------
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
+    # Local zero-infra persistence: a SQLite file path (e.g.
+    # ``~/.local/share/deepinterview/sessions.db``). Used when Supabase is not
+    # configured; unset keeps the in-memory store (lost on restart).
+    sqlite_path: str | None = None
 
     # --- livekit -------------------------------------------------------------
     livekit_url: str | None = None
@@ -137,6 +152,8 @@ class Settings(BaseSettings):
     # room joins with no agent listening ("Connecting your interviewer…"
     # forever, issue #67).
     livekit_agent_name: str = "deepinterview-interviewer"
+    # Separate dispatch name for the spoken Socratic coach worker.
+    livekit_coach_agent_name: str = "deepinterview-coach"
 
     # --- knowledge (LightRAG sidecar) ----------------------------------------
     # When set, the knowledge adapter + /api/kb/ingest forward to this base URL;

@@ -9,12 +9,17 @@ import type { ScoreCard, StudyModule } from "@deepinterview/shared";
 import { serverEnv } from "@/lib/env";
 import { SessionViewSchema } from "@/lib/session";
 import { SAMPLE_SCORECARD } from "@/lib/sample-scorecard";
+import { SAMPLE_STUDY_PLAN } from "@/lib/sample-mastery";
 import { requestCoachPlan } from "@/lib/api";
 import { StudyPlan } from "@/components/prep/study-plan";
 import { GroundedChat } from "@/components/prep/grounded-chat";
 import { Flashcards } from "@/components/prep/flashcards";
 import { MasteryGraphView } from "@/components/prep/mastery-graph";
 import { SocraticCta } from "@/components/prep/socratic-cta";
+import {
+  RecentSessions,
+  RememberSession,
+} from "@/components/session/recent-sessions";
 
 // Reads server-only config (`isSupabaseConfigured()`) and the per-request user;
 // must not be statically prerendered.
@@ -56,7 +61,10 @@ async function loadScorecard(id: string): Promise<ScoreCard | null> {
 export default async function PrepPage({
   searchParams,
 }: {
-  searchParams: Promise<{ session?: string | string[] }>;
+  searchParams: Promise<{
+    session?: string | string[];
+    module?: string | string[];
+  }>;
 }) {
   // No auth gate — OSS runs without sign-in.
   const params = await searchParams;
@@ -81,6 +89,13 @@ export default async function PrepPage({
   } catch {
     // Agent down / offline dev — StudyPlan renders its default sample modules.
   }
+
+  // "Start" on a study module links back here with `?module=<id>`; that
+  // module's lesson opens under its card.
+  const moduleId = typeof params.module === "string" ? params.module : null;
+  const activeModule =
+    (studyModules ?? SAMPLE_STUDY_PLAN).find((m) => m.id === moduleId) ??
+    null;
 
   return (
     <main className="mx-auto max-w-[1100px] px-6 py-12">
@@ -112,6 +127,11 @@ export default async function PrepPage({
             </>
           )}
         </p>
+        {sessionId ? (
+          <RememberSession id={sessionId} />
+        ) : (
+          <RecentSessions title="Coach on a past interview" />
+        )}
       </div>
 
       {/* Loop-back banner */}
@@ -144,8 +164,15 @@ export default async function PrepPage({
 
       {/* Study plan + grounded chat side by side on wide screens */}
       <section className="mt-10 grid gap-8 lg:grid-cols-[1.15fr_1fr]">
-        <StudyPlan modules={studyModules} weakAreas={weakAreas} />
-        <GroundedChat sessionId={sessionId} />
+        <StudyPlan
+          modules={studyModules}
+          weakAreas={weakAreas}
+          sessionId={sessionId}
+          activeModuleId={activeModule?.id ?? null}
+        />
+        <div id="coach" className="scroll-mt-6">
+          <GroundedChat sessionId={sessionId} />
+        </div>
       </section>
 
       {/* Flashcards + mastery graph */}
@@ -156,7 +183,7 @@ export default async function PrepPage({
 
       {/* Voice Socratic mode */}
       <section className="mt-12">
-        <SocraticCta />
+        <SocraticCta sessionId={sessionId} />
       </section>
     </main>
   );
