@@ -501,7 +501,11 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
   by uid 10001. The worker step runs the baked venv with `--network none` and
   `HF_HUB_OFFLINE=1`: it imports the worker plus silero/turn-detector, calls
   `Plugin.download_files()` on every registered plugin, and calls
-  `silero.VAD.load()`, all as uid 10001. A `Free runner disk space` step
+  `silero.VAD.load()`, all as uid 10001. Two further steps cover the real
+  startup paths: offline `.venv/bin/python -m deepinterview_agent.worker
+  --help`, and the compose/CMD path `uv run python -c "import
+  deepinterview_agent.worker, livekit.plugins.silero"` with the network
+  available. A `Free runner disk space` step
   removes unused preinstalled toolchains first. The lightrag and web steps are
   unchanged.
 - `.github/workflows/ci.yml` `security`: the Trivy gate now scans
@@ -580,6 +584,30 @@ and the caches are appuser-owned from creation. The CI shell scripts were
 extracted from the workflow and executed verbatim with only the local image tag
 substituted; PR #8's CI run for the new head has not been observed locally —
 check it after the push.
+
+### Final review guards — startup paths (2026-11-29)
+
+Final review found no CI proof of the two startup paths that actually run, so
+two steps now run against the already-built worker image (no rebuild, no
+application code change):
+
+1. Offline CLI: `docker run --rm --network none -e HF_HUB_OFFLINE=1
+   openinterview-agent-worker:ci .venv/bin/python -m deepinterview_agent.worker
+   --help` — the module entrypoint must start and print its commands without
+   network or a weight/dependency fetch.
+2. Networked `uv run` (the compose/CMD path): `docker run --rm
+   openinterview-agent-worker:ci uv run python -c "import
+   deepinterview_agent.worker, livekit.plugins.silero"`.
+
+Evidence — both scripts extracted from the workflow and run verbatim against
+the existing `openinterview-agent-worker:nonroot` image (tag substituted; no
+rebuild):
+
+| Check | Result |
+| --- | --- |
+| offline `python -m deepinterview_agent.worker --help` | exit 0; usage banner and `console`/`start`/`dev`/`connect`/`download-files` commands printed |
+| `uv run python -c "import …worker, livekit.plugins.silero"` with network | exit 0; uv synced its dev deps from PyPI, proving the online runtime path |
+| workflow YAML parse + `rhysd/actionlint:latest` | pass (exit 0) |
 
 ### Deviations, observations and remaining risks
 
