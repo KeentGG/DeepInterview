@@ -28,12 +28,13 @@ This file is the single source of truth for transition work. Update it after eve
 
 ## Currently doing
 
-- **Item:** 1 follow-up — non-root agent image
-- **Branch:** Not created yet
-- **Worktree:** Not created yet
+- **Item:** 1 follow-up — non-root agent image (accepted `DS-0002`)
+- **Branch:** `transition/nonroot-agent`
+- **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/nonroot-agent`
+- **Baseline:** main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Queued
+- **Status:** Planning complete 2026-11-28 (Muse 1.3 ship lead). No product code touched in this pass. Awaiting DeepSeek Flash implementation per the brief below.
 - **Notes:** Close accepted `DS-0002` before moving to brand/conversion.
 
 ## Done
@@ -341,3 +342,119 @@ Local rechecks after the fix (all in this worktree):
   HIGH misconfig (`DS-0002`, agent image root user) recorded above.
 - Test/durability review: no remaining gaps; Python 3.11 pin, web-image boot
   smoke, Trivy vuln+secret gate, and both `uv lock --check` gates verified.
+
+## Plan — Item 1 follow-up: non-root agent image (planning pass, no product code touched)
+
+Goal: run the `api` and `worker` runtime stages of `apps/agent/Dockerfile` as a
+non-root user, clearing accepted Trivy HIGH misconfig `DS-0002`, without breaking
+installs, baked model weights, SQLite, trace writes, or LiveKit startup.
+Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
+
+### Startup / writable-path evidence (why the plan is shaped this way)
+
+- `api` stage CMD and the compose `agent-api` command both run `uv run uvicorn
+  deepinterview_agent.app:app --host 0.0.0.0 --port 8000` with `WORKDIR /app`.
+  `worker` CMD / compose `agent-worker` command run `uv run python -m
+  deepinterview_agent.worker start`. Port 8000 is unprivileged — no caps needed.
+- Runtime writes: `uv run` needs a writable project (`.venv` under `/app`) plus a
+  writable uv cache (`~/.cache/uv`); traces append to `TRACE_DIR` (default
+  `.deepinterview/traces`, i.e. `/app/.deepinterview`, created on first write by
+  `core/tracing.py:_append_event`); SQLite is opt-in via `SQLITE_PATH` (default
+  unset = in-memory) and `sqlite_repository.py` creates parent dirs on open.
+- The `worker-deps` model bake (`Plugin.download_files()` for silero +
+  turn-detector) currently runs as root with default `HOME=/root`, so weights
+  land in `/root/.cache`. If the runtime user cannot read them, the first live
+  session stalls on a re-download — so the bake must target the runtime user's
+  cache dir (see Decided below).
+- Healthchecks (`docker-compose.yml`) run `python -c <urllib stdlib>` — no
+  curl/wget needed, works unchanged as a non-root user.
+- Precedent: `services/lightrag/Dockerfile` creates `appuser --uid 10001`,
+  `chown -R appuser:appuser /app`, then `USER appuser`, and avoids `uv run` at
+  runtime (`.venv/bin/python -m ...`). The agent keeps `uv run` instead (see
+  Decided) so `docker-compose.yml` commands need no change.
+
+### Implementer work (DeepSeek Flash)
+
+1. `apps/agent/Dockerfile`, `base` stage, after `WORKDIR /app` — create the
+   runtime user early and point caches at its home (BEFORE any bake step):
+   `RUN useradd --create-home --uid 10001 appuser`
+   `ENV HOME=/home/appuser HF_HOME=/home/appuser/.cache/huggingface
+   UV_CACHE_DIR=/home/appuser/.cache/uv`
+   (Do NOT add `USER` in `base` or `worker-deps` — installs and the model bake
+   stay root; only file placement changes via the env above.)
+2. `api` stage, after the final `RUN uv sync ...` and before `EXPOSE 8000`:
+   `RUN chown -R appuser:appuser /app /home/appuser`
+   `USER appuser`
+   Leave `CMD ["uv", "run", "uvicorn", ...]` exactly as-is.
+3. `worker` stage, after the final `RUN uv sync ...` and before the `CMD` comment:
+   `RUN chown -R appuser:appuser /app /home/appuser`
+   `USER appuser`
+   Leave `CMD ["uv", "run", "python", "-m", ...]` exactly as-is.
+4. No changes to `docker-compose.yml` (commands, healthchecks, ports), no volume
+   additions, no application code changes.
+5. Focused checks only (all in this worktree):
+   - `docker build -f apps/agent/Dockerfile --target api -t agent-api:nonroot .`
+   - `docker build -f apps/agent/Dockerfile --target worker -t agent-worker:nonroot .`
+   - `docker run --rm agent-api:nonroot id -u` -> `10001`; same for worker image.
+   - Boot api: `docker run -d -p 8000:8000 agent-api:nonroot`, poll
+     `http://127.0.0.1:8000/health` until 200 (15s start period mirrors compose);
+     `docker logs` must show no `Permission denied`; then
+     `docker exec <c> touch /app/.deepinterview/.writetest` (trace dir writable).
+   - Worker (no live keys needed): `docker run --rm agent-worker:nonroot uv run
+     python -c "import deepinterview_agent.worker"` must exit 0 as appuser, and
+     the baked weights must be readable: `docker run --rm agent-worker:nonroot
+     ls -l /home/appuser/.cache` shows appuser-owned model files (no re-download
+     stall at first session).
+   - `docker compose config -q` and
+     `docker compose --profile local --profile live config -q`.
+   - Trivy DS-0002 gate: `docker run --rm -v "$PWD:/repo:ro"
+     aquasec/trivy:0.76.2 fs --severity HIGH,CRITICAL --scanners misconfig
+     --skip-dirs .git --skip-dirs node_modules --skip-dirs .venv --skip-dirs
+     .next /repo` (or `--scanners vuln,secret,misconfig`) shows 0 HIGH/CRITICAL
+     misconfigs; `apps/agent/Dockerfile` row must be clean.
+   - Agent unit suite unchanged: `cd apps/agent && uv sync && uv run pytest -q`
+     (212 passed, 1 skipped expected).
+6. Stop/rollback conditions: revert the single Dockerfile commit (root images
+   rebuild identically) if ANY of these hold — api `/health` does not reach 200
+   as non-root; logs show `Permission denied` on `.venv`, trace dir, or cache;
+   worker import fails as appuser; baked weights are missing/root-owned and the
+   worker attempts a runtime download; Trivy still flags `DS-0002`.
+
+### Decisions
+
+- Decided: runtime user is `appuser --uid 10001`, matching
+  `services/lightrag/Dockerfile` (one convention, no new uid scheme).
+- Decided: `USER appuser` appears ONLY in the final `api` and `worker` stages;
+  `base` and `worker-deps` (builder) stages stay root so `uv sync` and the model
+  bake need no privilege rework.
+- Decided: user creation + `HOME`/`HF_HOME`/`UV_CACHE_DIR` env live in `base`
+  BEFORE the `worker-deps` bake, so silero/turn-detector weights land in
+  `/home/appuser/.cache` (not `/root/.cache`) and are readable at runtime.
+- Decided: keep runtime invocation as `uv run` (Dockerfile CMDs and compose
+  `command:` blocks unchanged). Ownership (`chown /app /home/appuser`) plus the
+  writable `UV_CACHE_DIR` make `uv run` work as non-root; this is the smallest
+  diff. The LightRAG `.venv/bin/python` switch is the documented fallback if
+  `uv run` proves uncooperative as appuser (it would then require paired
+  Dockerfile CMD + compose command edits).
+- Decided: each final stage does `chown -R appuser:appuser /app /home/appuser`
+  (project + venv + trace dir + all caches), covering trace writes, `uv` cache,
+  and HF/torch/LiveKit plugin caches with no extra `mkdir` or volume changes.
+- Decided: no `docker-compose.yml` changes in this item (ports are unprivileged,
+  healthchecks are stdlib-only, commands keep working). An operator-set
+  `SQLITE_PATH` outside `/app` stays the operator's responsibility (mount a
+  writable volume); the default in-memory store and `/app`-relative paths need
+  nothing.
+- Decided: no `.github/workflows/ci.yml` edits in this planning pass. Known gap
+  for the implementer to report: `docker-build` only builds the `api` target, so
+  the `worker` stage change is NOT covered by CI — recommend adding a
+  worker-target build step (and a non-root `/health` boot smoke mirroring the
+  web smoke) as a CI follow-up, owned by the ship lead. The `security` job is
+  unaffected (it scans `vuln,secret` only, and `DS-0002` stays out of that gate).
+- Decided: Trivy verification for this item is the `misconfig` scanner over the
+  Dockerfile/filesystem (where `DS-0002` lives), not a heavier `trivy image`
+  scan; same pinned `aquasec/trivy:0.76.2` invocation shape as the trust ship.
+- Decided: planning pass edits NOTHING except `WORKLOG.md` (no Dockerfiles,
+  workflows, or application code here); the implementer makes all product edits.
+- Decided: merge requires an independent (non-implementer, via Main) re-run of
+  the Trivy misconfig gate + review of the Dockerfile diff, with evidence
+  recorded in this log before the brand/conversion item starts.
