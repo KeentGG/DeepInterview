@@ -1,14 +1,14 @@
 # Architecture
 
-A concise tour of how DeepInterview is put together. The build is organized as
-13 work packages (WP-0…WP-13); their current status and scope are tracked in the
-GitHub issues.
+A concise tour of how OpenInterview is put together. The codebase retains
+upstream work-package labels in comments, but this document describes the
+current implementation.
 
-DeepInterview is a voice-first AI mock-interview platform: it reads a
-candidate's CV + a job description, researches the target company, runs an
-adaptive real-time voice interview with a stylized avatar, scores it, then
-routes the user into a study coach that teaches weak areas — a closed
-prep ⇄ interview ⇄ feedback loop. English-first, multilingual, Apache-2.0.
+OpenInterview is a community fork of DeepInterview: it reads a candidate's CV +
+a job description, researches the target company, runs an adaptive real-time
+voice interview with a stylized avatar, scores it, then routes the user into a
+study coach that teaches weak areas — a closed prep ⇄ interview ⇄ feedback
+loop. English-first, multilingual, Apache-2.0.
 
 ## The prep / live / post split
 
@@ -95,6 +95,23 @@ sync.
 
 Keeping the live prompt small (golden rule 2) is what keeps the turn path fast.
 
+## Persistence and session history
+
+`get_repository()` chooses one store in this order:
+
+1. **Supabase** when both `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set.
+2. **SQLite** when Supabase is not fully configured and `SQLITE_PATH` is set.
+3. **Memory** otherwise; sessions disappear when the process restarts.
+
+The SQLite store is local-only, single-user persistence. It stores one JSON row
+per session in WAL mode and opens a fresh connection for each operation, so the
+API and LiveKit workers see each other's writes without a process-local cache.
+`GET /api/sessions` returns lightweight recent-session summaries and
+`GET /api/sessions/library` returns deduplicated saved CVs and job descriptions.
+Both endpoints return 404 when Supabase is configured. The web UI merges the
+SQLite list with browser-local history and links each interview to redo, report,
+Prep Coach, and spoken Socratic Coach routes.
+
 ## The provider-adapter pattern (mock-first)
 
 Every external provider sits behind a narrow interface, so the core logic never
@@ -111,19 +128,42 @@ adding one adapter behind the existing interface — not touching call sites. Th
 web side mirrors this with billing/storage/knowledge helpers that degrade to a
 safe offline path when their env vars are unset.
 
+## Live voice workers and turn handling
+
+Two LiveKit workers share the same STT/LLM/TTS factories, context loader, and
+turn-handling configuration:
+
+- **Interviewer** — `deepinterview_agent.worker`, dispatched through
+  `LIVEKIT_AGENT_NAME` (default `deepinterview-interviewer`).
+- **Spoken Socratic coach** — `deepinterview_agent.worker_coach`, dispatched
+  through `LIVEKIT_COACH_AGENT_NAME` (default `deepinterview-coach`). It loads
+  the finished interview's `InterviewContext`, coaches the weak areas without a
+  retrieval tool, and saves `coach_transcript` separately from the interview
+  transcript.
+
+Both require the `livekit` extra and live provider keys. The interviewer
+pre-imports the optional multilingual turn-detector plugin before starting its
+worker process; the coach currently reuses the same turn-handling builder but
+does not prewarm it.
+
+Turn handling requires three transcribed words before an interruption and uses
+a 1–6 second silence window for thinking pauses. Supported languages also load
+the multilingual semantic end-of-turn model; unsupported languages such as
+Vietnamese fall back to the widened silence window.
+
 ## Package map
 
 ```
-deepinterview/
+openinterview/
 ├── apps/
 │   ├── web/                 # Next.js 16 (App Router) + React 19 + Tailwind v4 + shadcn/ui
-│   │   ├── app/api/         # coach/chat · health · kb/query (proxy) · session/[id] · upload
-│   │   ├── app/{setup,interview,report,prep,...}/   # screens
+│   │   ├── app/api/         # coach/chat · health · kb/query · session/[id] · sessions · upload
+│   │   ├── app/{setup,interview,report,prep,...}/   # screens incl. /interview/coach
 │   │   ├── components/      # interview · report · prep · avatar · ui
 │   │   └── lib/             # i18n · session · supabase · livekit · r2 · kb
 │   └── agent/               # Python 3.11+ LiveKit worker + LangGraph pipelines
 │       └── src/deepinterview_agent/
-│           ├── api/         # FastAPI routers: /api/prep, /api/score
+│           ├── api/         # FastAPI routers: /api/prep, /api/score, /api/sessions
 │           ├── prep/        # LangGraph prep pipeline (graph · nodes · prompts · state)
 │           ├── live/        # LiveKit interviewer · director · handoffs · state · kb_tool
 │           ├── post/        # evaluator · language_coach · report
@@ -144,31 +184,36 @@ contracts round-trip JSON between web and agent.
 Three processes expose HTTP. Paths below are the real route definitions in the
 code, not shorthand.
 
-| Endpoint            | Method | Served by                          | Purpose |
-| ------------------- | ------ | ---------------------------------- | --- |
-| `/api/prep`         | POST   | **agent** FastAPI (`apps/agent`)   | Run the prep pipeline → `InterviewContext` + `QuestionPlan`. |
-| `/api/score`        | POST   | **agent** FastAPI (`apps/agent`)   | Run the scoring/post pipeline → `ScoreCard`. |
-| `/health`           | GET    | **agent** FastAPI (`apps/agent`)   | Liveness check (`{"ok": true}`). |
-| `/api/session/[id]` | GET    | **web** (`apps/web`)               | Read a session view (context/scorecard/transcript) via the agent API. |
-| `/api/upload`       | POST   | **web** (`apps/web`)               | CV upload (server-side parse) → forwards to prep. |
-| `/api/coach/chat`   | POST   | **web** (`apps/web`)               | Prep-coach chat proxy. |
-| `/api/kb/query`     | POST   | **web** (`apps/web`)               | Proxy: forwards to the lightrag sidecar's `/kb/query` (via `LIGHTRAG_URL`). |
-| `/kb/ingest`        | POST   | **lightrag** sidecar (`:9621`)     | Ingest documents into a per-user knowledge store. |
-| `/kb/query`         | POST   | **lightrag** sidecar (`:9621`)     | Retrieve a grounded answer + citations for a query. |
+| Endpoint                     | Method | Served by                          | Purpose |
+| ---------------------------- | ------ | ---------------------------------- | --- |
+| `/api/prep`                  | POST   | **agent** FastAPI (`apps/agent`)   | Run the prep pipeline → `InterviewContext` + `QuestionPlan`. |
+| `/api/score`                 | POST   | **agent** FastAPI (`apps/agent`)   | Run the scoring/post pipeline → `ScoreCard`. |
+| `/health`                    | GET    | **agent** FastAPI (`apps/agent`)   | Liveness check (`{"ok": true}`). |
+| `/api/session/[id]`          | GET    | **agent** FastAPI (`apps/agent`)   | Read a session view (context/scorecard/transcript). |
+| `/api/session/[id]/inputs`   | GET    | **agent** FastAPI (`apps/agent`)   | Load saved CV/JD/company/language inputs for a redo. |
+| `/api/sessions`              | GET    | **agent** FastAPI (`apps/agent`)   | Recent-session summaries; local SQLite only, otherwise 404. |
+| `/api/sessions/library`      | GET    | **agent** FastAPI (`apps/agent`)   | Deduplicated saved CVs + JDs; local SQLite only, otherwise 404. |
+| `/api/upload`                | POST   | **web** (`apps/web`)               | CV upload (server-side parse) → forwards to prep. |
+| `/api/coach/chat`            | POST   | **web** (`apps/web`)               | Prep-coach chat proxy. |
+| `/api/kb/query`              | POST   | **web** (`apps/web`)               | Proxy to the lightrag sidecar's `/kb/query` via `LIGHTRAG_URL`. |
+| `/kb/ingest`                 | POST   | **lightrag** sidecar (`:9621`)     | Ingest documents into a per-user knowledge store. |
+| `/kb/query`                  | POST   | **lightrag** sidecar (`:9621`)     | Retrieve a grounded answer + citations for a query. |
 
-(The web app also exposes `upload`, `coach/chat`, and `health` routes; the
-LiveKit access token is minted by a server action (`createInterviewToken` in
-`apps/web/lib/livekit.ts`), not an `/api/token` route; billing/webhook routes
-were removed with the uncapped OSS build. The
-lightrag port is configurable via `LIGHTRAG_PORT`, default `9621`.)
+(The web app proxies session, coach, upload, and knowledge routes; the LiveKit
+access token is minted by a server action (`createInterviewToken` in
+`apps/web/lib/livekit.ts`), not an `/api/token` route. The lightrag port is
+configurable via `LIGHTRAG_PORT`, default `9621`.)
 
-**Room contract (live voice).** The browser gets a scoped token from the
-`createInterviewToken` server action, joins the LiveKit room, and talks to the agent worker. The
-turn loop is **cascaded STT → LLM → TTS** (not speech-to-speech) so we get
-transcripts and per-component control. The interviewer drives the conversation
-through two function tools — `save_answer` (record the candidate's answer to the
-current question) and `get_next_question` (advance through the precomputed
-`QuestionPlan`) — keeping the model's job small and the latency low.
+**Room contract (live voice).** The browser gets a scoped token with an explicit
+`roomConfig.agents` dispatch. Interview rooms request `LIVEKIT_AGENT_NAME`;
+Socratic rooms request `LIVEKIT_COACH_AGENT_NAME` and include `mode: "socratic"`
+in dispatch metadata. The room name is the session id, so each worker can load
+the same persisted `InterviewContext`.
+
+The interviewer drives the conversation through `save_answer` and
+`get_next_question`. The coach has no tools: it speaks from the weak-area summary
+and captures its own transcript. Both use the cascaded STT → LLM → TTS path and
+the shared turn-handling rules above.
 
 ---
 

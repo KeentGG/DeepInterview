@@ -2,7 +2,17 @@
 
 All notable changes, newest first. The README's [News](README.md#news) section
 carries the latest handful of entries; everything lands here permanently.
-Tagged releases: [GitHub Releases](https://github.com/ngoanpv/DeepInterview/releases).
+Upstream tagged releases: [GitHub Releases](https://github.com/ngoanpv/DeepInterview/releases).
+
+## Unreleased — 2026-11-28
+
+- **OpenInterview community fork.** Renames the fork and records its upstream provenance in both READMEs.
+- **Spoken Socratic coach.** Adds `/interview/coach`, a separate LiveKit worker dispatch (`LIVEKIT_COACH_AGENT_NAME`), and a coach transcript stored separately from the interview transcript.
+- **Opt-in SQLite session history.** `SQLITE_PATH` persists sessions when Supabase is unset, enables recent-interview links and saved CV/JD reuse, and keeps the browser-local fallback for other deployments. Fully configured Supabase still takes precedence.
+- **Inline study-module lessons.** Starting a module opens its explanation, worked example, and practice prompt directly under the study-plan card.
+- **Wider thinking-pause endpointing.** The interviewer worker pre-imports the optional multilingual turn detector, keeps a 1–6 second silence window, and requires three transcribed words before an interruption.
+- **Cartesia phrase buffering.** `CARTESIA_BUFFER=cartesia` enables phrase-buffered pacing alongside voice, speed, and emotion settings; `sentence` remains the low-latency default.
+- **System-aware dark mode.** Adds Light, Dark, and System controls with OS-aware defaults and browser-persisted overrides.
 
 ## v0.3.0 — 2026-08-02
 

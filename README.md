@@ -48,7 +48,7 @@ OpenInterview closes the **prep ⇄ interview ⇄ feedback** loop: heavy reasoni
 
 ### 1. Offline path (verified — no API keys needed)
 
-This is what's tested in CI today. It builds the contracts, runs the test suites, and exercises the prep/live/post pipelines against **mock adapters** — no provider keys required.
+The offline test suite builds the contracts, runs the web and agent tests, and exercises the prep/live/post pipelines against **mock adapters** — no provider keys required.
 
 ```bash
 git clone https://github.com/KeentGG/OpenInterview.git
@@ -64,6 +64,8 @@ pnpm deepinterview init   # scaffold .env from .env.example (fill in keys later)
 > `pnpm build` must run before `pnpm deepinterview init` — the CLI is built into `cli/dist/`.
 > For the Python agent: `uv --directory apps/agent sync` then `uv --directory apps/agent run pytest`.
 
+> **Optional local history:** set `SQLITE_PATH=~/.local/share/openinterview/sessions.db` in `.env` to keep sessions across restarts and enable recent-interview links. Supabase takes precedence when fully configured.
+
 ### 2. Full-stack path (`docker compose up` — verified)
 
 ```bash
@@ -75,12 +77,13 @@ docker compose up --build  # web (:3000) + agent API (:8000) + lightrag (:9621)
 >
 > - **Docker reads the repo-root `.env`** (compose `env_file`). Local dev (`pnpm dev`) instead reads `apps/agent/.env` and `apps/web/.env.local` — keys there are **not** visible to the containers, so put them in the root `.env` for Docker.
 > - The **live voice worker** is opt-in: `docker compose --profile live up`. It **requires** `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` (plus STT/TTS/LLM keys) in the root `.env`; without them the worker exits and restart-loops while the base stack keeps running.
+> - **Spoken Socratic coaching** runs as a second LiveKit worker (`python -m deepinterview_agent.worker_coach start`) with dispatch name `LIVEKIT_COACH_AGENT_NAME` (default `deepinterview-coach`). Start it alongside the interviewer; `/prep` and recent interviews dispatch it automatically.
 
 ### 3. One-click deploy
 
 [![Deploy web to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/KeentGG/OpenInterview)
 
-The button deploys **`apps/web`** to Vercel. The Python **agent** is not serverless — run it via **Docker** (the `agent-api` image above) or on **[LiveKit Cloud Agents](https://docs.livekit.io/agents/)** for the live voice worker, and point the web app at it with `AGENT_API_URL`. See [`docs/DEPLOY.md`](docs/DEPLOY.md) (WP-12, in progress).
+The button deploys **`apps/web`** to Vercel. The Python **agent** is not serverless — run it via **Docker** (the `agent-api` image above) or on **[LiveKit Cloud Agents](https://docs.livekit.io/agents/)** for the live voice worker, and point the web app at it with `AGENT_API_URL`. See [`docs/DEPLOY.md`](docs/DEPLOY.md) for topology and environment settings.
 
 <details><summary>Configuring providers & adding a language pack</summary>
 
@@ -107,18 +110,25 @@ Practicing in your head (or in a text chat) isn't how interviews work. OpenInter
 - **Personalized prep** — a LangGraph pipeline reads your CV + the JD, researches the target company, diffs the gap, and a **Question Planner** precomputes the plan, difficulty curve, rubrics, and seeded follow-ups — so the live loop stays fast. Uploaded **CV documents (PDF/DOCX) are parsed to text server-side with [Microsoft markitdown](https://github.com/microsoft/markitdown), with a Gemini multimodal fallback for scanned/image PDFs**.
 - **Community playbook library** — question-bank packs in [`skills/`](skills/) (versioned Markdown + YAML) are retrieved by role/level and injected into the Question Planner: packs the community writes get asked in real interviews. Validate yours with `pnpm deepinterview skills lint`.
 - **Scored feedback** — a rubric-based evaluator + language coach write a per-competency `ScoreCard` with strengths, gaps, model answers, and next steps that map straight back to the questions you were asked.
-- **Prep Coach** *(in progress)* — turns your gaps into an LLM study loop (plan → drills → Socratic chat). Grounded + cited answers are **optional**: set `LIGHTRAG_URL` (or wire a managed RAG behind the same adapter) to ground responses in your own uploaded materials; by default the coach answers honestly without fabricated citations.
+- **Prep Coach** — turns your gaps into a study plan, drills, Socratic chat, and inline module lessons. **Start** opens a lesson under its card with an explanation, worked example, and practice prompt; follow-up questions stay in the coach chat. Grounded + cited text answers are **optional**: set `LIGHTRAG_URL` (or wire a managed RAG behind the same adapter) to ground responses in your uploaded materials; by default the coach answers honestly without fabricated citations.
+- **Spoken Socratic coach** — after a mock, continue out loud from `/prep` or recent interviews. It runs as a separate LiveKit worker (`LIVEKIT_COACH_AGENT_NAME`, default `deepinterview-coach`) and stores its transcript separately from the interview.
+- **Recent interviews & reusable inputs** — browser-local history works everywhere; opt-in `SQLITE_PATH` adds server-backed recent sessions plus saved CV/JD reuse when Supabase is unset.
+- **System-aware dark mode** — Light, Dark, and System choices appear in the navigation and app screens. System follows the OS; explicit choices persist in the browser.
 - **Cost-smart avatars** *(in progress)* — the crossfade system + persona fallbacks are built; pre-rendered idle/speaking loops from **any video generator** drop in as packs land ([docs/AVATARS.md](docs/AVATARS.md) — until then it renders a calm gradient stage). Original personas only (no named IP), so runtime cost is **CDN-only — no per-minute avatar fees**.
 
 ## Provider matrix
 
-**Every stage is swappable — bring your own vendor.** The live voice loop is **cascaded STT → LLM → TTS** over LiveKit; you pick each vendor with a single env var (`STT_PROVIDER` / `TTS_PROVIDER` / `LLM_PROVIDER`) plus its key. No code changes, no vendor lock-in — providers sit behind a clean adapter interface, and adding a new one is a small PR (see [CONTRIBUTING.md](CONTRIBUTING.md)). With no keys set, every stage falls back to an offline **mock adapter** so the full loop runs in CI and on day-one clones.
+**Every stage is swappable — bring your own vendor.** The live voice loop is **cascaded STT → LLM → TTS** over LiveKit; you pick each vendor with a single env var (`STT_PROVIDER` / `TTS_PROVIDER` / `LLM_PROVIDER`) plus its key. No code changes, no vendor lock-in — providers sit behind a clean adapter interface, and adding a new one is a small PR (see [CONTRIBUTING.md](CONTRIBUTING.md)). With no keys set, every stage falls back to an offline **mock adapter** so the full loop runs offline and on day-one clones.
 
 | Stage | Choose with | Cloud vendors (pick one) | Fully local | No key set |
 |---|---|---|---|---|
 | **STT** | `STT_PROVIDER` | **Deepgram nova-3** (default) · Soniox | **`whisper`** · **`qwen3-asr`** — any OpenAI-compatible server | mock adapter |
 | **TTS** | `TTS_PROVIDER` | **Cartesia sonic** (default) · ElevenLabs Flash v2.5 · Gemini TTS | **`kokoro`** — kokoro-fastapi | mock adapter |
 | **LLM** | `LLM_PROVIDER` | **Gemini live tier** (default) · OpenAI | **`ollama`** — e.g. Qwen3 | mock adapter |
+
+**Cartesia delivery:** `CARTESIA_BUFFER=sentence` is the low-latency default. Set `CARTESIA_BUFFER=cartesia` for phrase-buffered pacing; `CARTESIA_VOICE_ID`, `CARTESIA_SPEED`, and `CARTESIA_EMOTION` tune the voice.
+
+**Turn handling:** interruptions require at least three transcribed words. Silence endpointing waits 1–6 seconds for thinking pauses; supported languages also use the multilingual semantic end-of-turn model, while unsupported languages such as Vietnamese use the widened silence window.
 
 ### Run it 100% local
 
@@ -145,6 +155,7 @@ See [docs/OPENROUTER_AND_CPU_ONLY.md](docs/OPENROUTER_AND_CPU_ONLY.md).
 
 ## News
 
+> - **[2026.11]** **OpenInterview community fork.** Adds spoken Socratic coaching, opt-in SQLite session history and saved-input reuse, inline study-module lessons, wider thinking-pause endpointing, Cartesia phrase buffering, and system-aware dark mode.
 > - **[2026.08]** **Run the whole thing on your own machine.** The LLM, speech-to-text and text-to-speech stages now point at local OpenAI-compatible servers — **Ollama**, a local **Whisper** server and **Kokoro** — so an interview needs no model keys at all. Verified end to end on Apple Silicon; pair it with `livekit-server --dev` for a fully offline stack. English voices for now, and turn latency isn't benchmarked. See [docs/LOCAL_MODELS.md](docs/LOCAL_MODELS.md).
 > - **[2026.07]** **Now on Gemini 3.6 Flash + LiveKit Agents 1.6.** Prep and scoring run on **Gemini 3.6 Flash**; the live voice stack moved to livekit-agents 1.6 (Gemini 3-ready function calling on the turn path), and live captions now read as one paragraph per speaker instead of per-fragment lines.
 > - **[2026.07]** **The open-source build is fully uncapped — billing removed.** Self-host with your own keys: no plan gates, no interview caps, no billing tables. Payments live only in the hosted edition; the OSS schema got leaner.
@@ -157,7 +168,7 @@ _(Honest by policy — no shipped-feature claims until they're true. Older entri
 
 ## Releases
 
-Current release: **[v0.3.0](https://github.com/ngoanpv/DeepInterview/releases/tag/v0.3.0)** (2026-08-02) — a fully local model path (Ollama + Whisper + Kokoro) so an interview needs no model keys at all, on top of the v0.2.0 loop: prep → live voice interview → scoring → coach verified on real providers, uncapped billing-free OSS build, hardened API surface, and the community playbook library wired into the question planner. See [Releases](https://github.com/ngoanpv/DeepInterview/releases) for notes; citation metadata lives in [`CITATION.cff`](CITATION.cff).
+Current upstream release: **[v0.3.0](https://github.com/ngoanpv/DeepInterview/releases/tag/v0.3.0)** (2026-08-02) — a fully local model path (Ollama + Whisper + Kokoro) so an interview needs no model keys at all, on top of the v0.2.0 loop: prep → live voice interview → scoring → coach verified on real providers, uncapped billing-free OSS build, hardened API surface, and the community playbook library wired into the question planner. See [Releases](https://github.com/ngoanpv/DeepInterview/releases) for notes; citation metadata lives in [`CITATION.cff`](CITATION.cff).
 
 ## Architecture
 

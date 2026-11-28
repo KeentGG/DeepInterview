@@ -1,13 +1,9 @@
-# Deploying DeepInterview
+# Deploying OpenInterview
 
-> WP-12 (DevOps / deploy / observability). Implements handoff **§11 (deploy /
-> regions / observability)** and the **§12** cost-optimization notes. Goal:
-> push-to-deploy web + agent in the **Singapore region**, healthchecks on every
-> service, and one dashboard for latency / cost / errors.
-
-Everything here is **provider-agnostic and gated**: with no keys set, the stack
-runs fully offline (mock providers, naive RAG) and observability is a clean
-no-op. You only wire a provider when you have its DSN/keys.
+OpenInterview is provider-agnostic and gated: with no keys set, the stack runs
+fully offline with mock providers and naive RAG, and observability is a no-op.
+Wire a provider only when its DSN or keys are available. The topology below
+describes the current fork, including the separate spoken-coach worker.
 
 ---
 
@@ -35,21 +31,23 @@ Region is pinned in:
 
 ## 2. Topology
 
-| Component        | Where it runs                                   | Port | Health     |
-| ---------------- | ----------------------------------------------- | ---- | ---------- |
-| **web** (Next)   | Vercel (`sin1`) — or the `web` container        | 3000 | `/api/health` |
-| **agent-api**    | Container (Render/Fly `sin`) — FastAPI prep/score | 8000 | `/health`  |
-| **agent-worker** | LiveKit Cloud Agents **SGP** (live voice loop)  | —    | LiveKit Cloud |
-| **lightrag**     | Container (`sin`) — knowledge sidecar           | 9621 | `/health`  |
-| **Supabase**     | Managed (`ap-southeast-1`) — Postgres/Auth/Storage | —  | managed    |
-| **R2**           | Cloudflare (global) — CV files + recordings     | —    | managed    |
+| Component          | Where it runs                                   | Port | Health     |
+| ------------------ | ----------------------------------------------- | ---- | ---------- |
+| **web** (Next)     | Vercel (`sin1`) — or the `web` container         | 3000 | `/api/health` |
+| **agent-api**      | Container (Render/Fly `sin`) — FastAPI prep/score | 8000 | `/health`  |
+| **agent-worker**   | LiveKit Cloud Agents **SGP** — interviewer       | —    | LiveKit Cloud |
+| **coach-worker**   | LiveKit Cloud Agents **SGP** — spoken coach      | —    | LiveKit Cloud |
+| **lightrag**       | Container (`sin`) — knowledge sidecar            | 9621 | `/health`  |
+| **Supabase**       | Managed (`ap-southeast-1`) — optional persistence | —  | managed    |
+| **R2**             | Cloudflare (global) — CV files + recordings      | —    | managed    |
 
-The agent ships as **one image, two run modes** (`apps/agent/Dockerfile`):
+The agent ships as **one image, three run modes** (`apps/agent/Dockerfile`):
 the default `CMD` runs the **API** (`uvicorn …:8000`); overriding the command to
-`python -m deepinterview_agent.worker` runs the **worker**. The worker imports
-`livekit.agents` at load time, so its image must be built with the `livekit`
-extra and given LiveKit/STT/TTS/LLM keys — that's why it is gated behind the
-compose `live` profile and a secrets check in CI.
+`python -m deepinterview_agent.worker start` runs the **interviewer**; and
+`python -m deepinterview_agent.worker_coach start` runs the **spoken coach**.
+Both workers import `livekit.agents` at load time, so their image must be built
+with the `livekit` extra and given LiveKit/STT/TTS/LLM keys. The compose `live`
+profile starts only the interviewer; run the coach separately.
 
 ---
 
@@ -71,6 +69,18 @@ ship neither `curl` nor `wget`:
 `web` and `agent-api` `depends_on` `lightrag` being **healthy** before they
 start.
 
+### Session persistence
+
+Set `SQLITE_PATH` only for a local, single-user deployment without Supabase, for
+example `SQLITE_PATH=~/.local/share/openinterview/sessions.db`. The agent creates
+the parent directory and enables WAL mode. Fully configured Supabase takes
+precedence; with no `SQLITE_PATH` and no Supabase, sessions stay in memory.
+
+When running the agent in Docker, mount the directory containing `SQLITE_PATH`
+as a volume. A path inside the container without a mount is lost when the
+container is replaced. Session-list and saved-input-library endpoints are
+disabled when Supabase is configured; the UI then uses browser-local history.
+
 ### Images
 
 - **web** — `apps/web/Dockerfile`, multi-stage, Next.js **standalone** output
@@ -87,16 +97,14 @@ start.
 
 ## 4. Push-to-deploy
 
-`.github/workflows/ci.yml` runs on every push/PR: schema parity, build,
-typecheck, lint, JS + Python tests (agent **and** lightrag sidecar), and
-`docker compose config -q`.
+The repository includes `.github/workflows/ci.yml` for schema parity, build,
+typecheck, lint, JS + Python tests (agent and lightrag sidecar), and
+`docker compose config -q`. Enable GitHub Actions in the fork to run it on
+pushes and pull requests.
 
-`.github/workflows/deploy.yml` is the **gated** deploy (manual
-`workflow_dispatch` only — there is intentionally no `push:` trigger until the
-deploy steps are wired). It is safe by default — each deploy step is skipped
-unless its secrets are present (checked **inside** a step via `env:`, since
-GitHub does not allow `secrets.*` in a job-level `if:`), and the destructive CLI
-commands are commented out until you opt in.
+`.github/workflows/deploy.yml` is a gated manual workflow. Each deploy step is
+skipped unless its secrets are present, and destructive CLI commands remain
+commented out until explicitly enabled.
 
 Jobs:
 
@@ -107,6 +115,18 @@ Jobs:
    (Singapore)** (or Render / Fly `sin`). Needs `LIVEKIT_URL`,
    `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. Remember the worker variant must be
    built with `--extra livekit`.
+
+The included deploy workflow targets the interviewer worker only. Deploy the
+coach worker separately with the same image, `livekit` extra, and provider keys:
+
+```bash
+uv --directory apps/agent run --extra livekit python -m deepinterview_agent.worker_coach start
+```
+
+It registers `LIVEKIT_COACH_AGENT_NAME` (default `deepinterview-coach`) and uses
+the same session store as the API. The coach does not currently prewarm or
+pre-import the turn-detector plugin; verify semantic end-of-turn in a live coach
+session.
 
 ### Web on Vercel
 
@@ -125,9 +145,17 @@ same keys as **deployment secrets** on each platform:
 
 - **Vercel** (web): `NEXT_PUBLIC_*` (Supabase URL/anon key, app URL), and any
   server keys the web token endpoint needs.
-- **LiveKit Cloud** (worker): `LIVEKIT_URL/API_KEY/API_SECRET`, STT/TTS/LLM
+- **LiveKit Cloud** (both workers): `LIVEKIT_URL/API_KEY/API_SECRET`, STT/TTS/LLM
   provider + key (Soniox/Deepgram · Cartesia/ElevenLabs · Gemini/OpenAI),
-  Supabase service-role key, `LIGHTRAG_URL`.
+  Supabase service-role key when used, and `LIGHTRAG_URL`.
+- **Worker dispatch names:** `LIVEKIT_AGENT_NAME` for the interviewer and
+  `LIVEKIT_COACH_AGENT_NAME` for spoken coaching. The web token request and
+  worker registration must use the same value.
+- **Cartesia tuning:** optional `CARTESIA_VOICE_ID`, `CARTESIA_SPEED`,
+  `CARTESIA_EMOTION`, and `CARTESIA_BUFFER` (`sentence` for lowest latency,
+  `cartesia` for phrase-buffered pacing).
+- **Local persistence:** optional `SQLITE_PATH`; leave Supabase unset and mount
+  the database directory when containerized.
 - **agent-api / lightrag** containers: provider keys as needed; both run offline
   on mocks with none set.
 
@@ -198,5 +226,7 @@ are a hosted concern that lives in the private cloud fork, not here.
 - [ ] Secrets set on Vercel + LiveKit Cloud (+ container host).
 - [ ] `vercel.json` linked to the Vercel project (region `sin1`).
 - [ ] Worker image built with `--extra livekit`; deployed to LiveKit Cloud SGP.
+- [ ] Coach worker deployed with `LIVEKIT_COACH_AGENT_NAME`; spoken Socratic dispatch tested.
 - [ ] Healthchecks green: web `/api/health`, agent-api `/health`, lightrag `/health`.
 - [ ] (Optional) `SENTRY_DSN` + `LANGFUSE_*` set; uncomment deploy CLI steps.
+- [ ] If using SQLite, `SQLITE_PATH` is set and its directory is mounted; otherwise accept memory-only history.

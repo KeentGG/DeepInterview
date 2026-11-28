@@ -48,7 +48,7 @@ OpenInterview khép kín vòng lặp **chuẩn bị ⇄ phỏng vấn ⇄ phản
 
 ### 1. Đường offline (đã kiểm chứng — không cần API key)
 
-Đây chính là thứ CI đang test mỗi ngày. Nó build contract, chạy test suite, và chạy pipeline prep/live/post trên **mock adapter** — không cần key của provider nào.
+Bộ test offline build contract, chạy test web và agent, và chạy pipeline prep/live/post trên **mock adapter** — không cần key của provider nào.
 
 ```bash
 git clone https://github.com/KeentGG/OpenInterview.git
@@ -64,6 +64,8 @@ pnpm deepinterview init   # tạo .env từ .env.example (điền key sau cũng 
 > `pnpm build` phải chạy trước `pnpm deepinterview init` — CLI được build vào `cli/dist/`.
 > Với agent Python: `uv --directory apps/agent sync` rồi `uv --directory apps/agent run pytest`.
 
+> **Lịch sử local tuỳ chọn:** đặt `SQLITE_PATH=~/.local/share/openinterview/sessions.db` trong `.env` để giữ phiên qua lần khởi động lại và bật liên kết tới các buổi phỏng vấn gần đây. Supabase được ưu tiên khi cấu hình đầy đủ.
+
 ### 2. Đường full-stack (`docker compose up` — đã kiểm chứng)
 
 ```bash
@@ -75,12 +77,13 @@ docker compose up --build  # web (:3000) + agent API (:8000) + lightrag (:9621)
 >
 > - **Docker chỉ đọc `.env` ở thư mục gốc** (compose `env_file`). Còn dev cục bộ (`pnpm dev`) đọc `apps/agent/.env` và `apps/web/.env.local` — key đặt ở đó container **không** thấy, nên với Docker hãy để key trong `.env` gốc.
 > - **Worker giọng nói** là opt-in: `docker compose --profile live up`. Nó **bắt buộc** phải có `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` (cộng thêm key STT/TTS/LLM) trong `.env` gốc; thiếu thì worker thoát và restart liên tục trong khi base stack vẫn chạy bình thường.
+> - **Coach Socratic bằng giọng nói** chạy như một LiveKit worker thứ hai (`python -m deepinterview_agent.worker_coach start`) với tên dispatch `LIVEKIT_COACH_AGENT_NAME` (mặc định `deepinterview-coach`). Hãy chạy nó cùng interviewer; `/prep` và danh sách buổi phỏng vấn gần đây sẽ tự dispatch.
 
 ### 3. Deploy một cú nhấp
 
 [![Deploy web to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/KeentGG/OpenInterview)
 
-Nút này deploy **`apps/web`** lên Vercel. **Agent** Python thì không chạy serverless được — hãy chạy nó bằng **Docker** (image `agent-api` ở trên) hoặc trên **[LiveKit Cloud Agents](https://docs.livekit.io/agents/)** cho worker giọng nói, rồi trỏ web app tới nó qua `AGENT_API_URL`. Xem [`docs/DEPLOY.md`](docs/DEPLOY.md) (WP-12, đang làm).
+Nút này deploy **`apps/web`** lên Vercel. **Agent** Python thì không chạy serverless được — hãy chạy nó bằng **Docker** (image `agent-api` ở trên) hoặc trên **[LiveKit Cloud Agents](https://docs.livekit.io/agents/)** cho worker giọng nói, rồi trỏ web app tới nó qua `AGENT_API_URL`. Xem [`docs/DEPLOY.md`](docs/DEPLOY.md) để biết topology và cấu hình môi trường.
 
 <details><summary>Cấu hình provider & thêm một language pack</summary>
 
@@ -107,18 +110,25 @@ Luyện trong đầu (hoặc luyện bằng chat chữ) không giống cách m�
 - **Chuẩn bị cá nhân hoá** — một pipeline LangGraph đọc CV + JD, nghiên cứu công ty mục tiêu, đối chiếu khoảng cách, rồi **Question Planner** tính sẵn kế hoạch, đường cong độ khó, rubric và các câu đào sâu gieo trước — để vòng lặp live luôn nhanh. **CV dạng tài liệu (PDF/DOCX) được parse sang text ở phía server bằng [Microsoft markitdown](https://github.com/microsoft/markitdown), có fallback đa phương thức qua Gemini cho PDF scan/ảnh**.
 - **Thư viện playbook cộng đồng** — các pack ngân hàng câu hỏi trong [`skills/`](skills/) (Markdown + YAML có version) được truy xuất theo vai trò/cấp bậc rồi đưa vào Question Planner: pack cộng đồng viết ra sẽ được hỏi trong buổi phỏng vấn thật. Kiểm tra pack của bạn bằng `pnpm deepinterview skills lint`.
 - **Phản hồi có chấm điểm** — một evaluator theo rubric cùng một language coach viết ra `ScoreCard` cho từng năng lực, kèm điểm mạnh, lỗ hổng, câu trả lời mẫu và bước tiếp theo, ánh xạ thẳng về đúng những câu bạn đã bị hỏi.
-- **Prep Coach** *(đang làm)* — biến các lỗ hổng của bạn thành một vòng học có LLM (kế hoạch → bài luyện → hội thoại Socratic). Câu trả lời có dẫn nguồn là **tuỳ chọn**: đặt `LIGHTRAG_URL` (hoặc gắn một RAG managed sau cùng adapter đó) để neo câu trả lời vào tài liệu bạn tải lên; mặc định thì coach trả lời trung thực mà không bịa trích dẫn.
+- **Prep Coach** — biến các lỗ hổng của bạn thành kế hoạch học, bài luyện, chat Socratic và bài học ngay dưới thẻ module. **Start** mở phần giải thích, ví dụ đã làm và một bài tập thực hành; câu hỏi tiếp theo nằm trong chat coach. Câu trả lời văn bản có dẫn nguồn là **tuỳ chọn**: đặt `LIGHTRAG_URL` (hoặc gắn RAG managed sau adapter đó) để neo câu trả lời vào tài liệu bạn tải lên; mặc định coach trả lời trung thực mà không bịa trích dẫn.
+- **Coach Socratic bằng giọng nói** — sau một buổi mock, tiếp tục nói thành tiếng từ `/prep` hoặc danh sách buổi phỏng vấn gần đây. Worker LiveKit riêng (`LIVEKIT_COACH_AGENT_NAME`, mặc định `deepinterview-coach`) lưu transcript coach tách khỏi transcript phỏng vấn.
+- **Buổi phỏng vấn gần đây & dữ liệu dùng lại** — lịch sử trong browser hoạt động ở mọi nơi; bật `SQLITE_PATH` để có danh sách phiên trên server và dùng lại CV/JD đã lưu khi không dùng Supabase.
+- **Dark mode theo hệ thống** — các lựa chọn Light, Dark và System xuất hiện trong thanh điều hướng và các màn hình. System theo OS; lựa chọn rõ ràng được lưu trong browser.
 - **Avatar tiết kiệm chi phí** *(đang làm)* — hệ thống crossfade và persona dự phòng đã xong; các vòng lặp idle/speaking dựng sẵn từ **bất kỳ trình tạo video nào** sẽ cắm vào khi có pack ([docs/AVATARS.md](docs/AVATARS.md) — trong lúc chờ, nó hiển thị một nền gradient tĩnh). Chỉ dùng persona gốc (không nhân vật có bản quyền), nên chi phí lúc chạy **chỉ là CDN — không tính phí theo phút cho avatar**.
 
 ## Ma trận provider
 
-**Mọi tầng đều thay được — cứ mang vendor của bạn tới.** Vòng lặp giọng nói là **STT → LLM → TTS nối tầng** trên LiveKit; bạn chọn từng vendor bằng đúng một biến môi trường (`STT_PROVIDER` / `TTS_PROVIDER` / `LLM_PROVIDER`) cộng key của nó. Không sửa code, không khoá vendor — provider nằm sau một adapter interface gọn gàng, và thêm một cái mới chỉ là một PR nhỏ (xem [CONTRIBUTING.md](CONTRIBUTING.md)). Không đặt key nào thì mọi tầng lùi về **mock adapter** offline, nên trọn vòng lặp vẫn chạy trong CI và ngay lần clone đầu tiên.
+**Mọi tầng đều thay được — cứ mang vendor của bạn tới.** Vòng lặp giọng nói là **STT → LLM → TTS nối tầng** trên LiveKit; bạn chọn từng vendor bằng đúng một biến môi trường (`STT_PROVIDER` / `TTS_PROVIDER` / `LLM_PROVIDER`) cộng key của nó. Không sửa code, không khoá vendor — provider nằm sau một adapter interface gọn gàng, và thêm một cái mới chỉ là một PR nhỏ (xem [CONTRIBUTING.md](CONTRIBUTING.md)). Không đặt key nào thì mọi tầng lùi về **mock adapter** offline, nên trọn vòng lặp chạy offline và ngay lần clone đầu tiên.
 
 | Tầng | Chọn bằng | Vendor cloud (chọn một) | Chạy hẳn trên máy | Không đặt key |
 |---|---|---|---|---|
 | **STT** | `STT_PROVIDER` | **Deepgram nova-3** (mặc định) · Soniox | **`whisper`** · **`qwen3-asr`** — bất kỳ server tương thích OpenAI | mock adapter |
 | **TTS** | `TTS_PROVIDER` | **Cartesia sonic** (mặc định) · ElevenLabs Flash v2.5 · Gemini TTS | **`kokoro`** — kokoro-fastapi | mock adapter |
 | **LLM** | `LLM_PROVIDER` | **Gemini live tier** (mặc định) · OpenAI | **`ollama`** — ví dụ Qwen3 | mock adapter |
+
+**Cách phát giọng Cartesia:** `CARTESIA_BUFFER=sentence` là mặc định độ trễ thấp. Đặt `CARTESIA_BUFFER=cartesia` để ghép cụm câu trước khi phát; `CARTESIA_VOICE_ID`, `CARTESIA_SPEED` và `CARTESIA_EMOTION` điều chỉnh giọng.
+
+**Xử lý lượt nói:** chỉ ngắt khi đã có ít nhất ba từ được phiên âm. Endpointing theo im lặng chờ 1–6 giây cho khoảng dừng suy nghĩ; ngôn ngữ được hỗ trợ còn dùng model semantic end-of-turn đa ngôn ngữ, còn ngôn ngữ chưa hỗ trợ như tiếng Việt dùng cửa sổ im lặng rộng hơn.
 
 ### Chạy 100% trên máy bạn
 
@@ -145,6 +155,7 @@ Muốn chạy qua một gateway tương thích OpenAI (OpenRouter và tương t�
 
 ## Tin mới
 
+> - **[2026.11]** **OpenInterview — fork do cộng đồng.** Thêm coach Socratic bằng giọng nói, lịch sử phiên SQLite tuỳ chọn và dữ liệu dùng lại, bài học ngay dưới module, endpointing rộng hơn cho khoảng dừng suy nghĩ, phrase buffering Cartesia và dark mode theo hệ thống.
 > - **[2026.08]** **Chạy trọn hệ thống ngay trên máy bạn.** Các tầng LLM, speech-to-text và text-to-speech giờ trỏ được vào server tương thích OpenAI chạy cục bộ — **Ollama**, một server **Whisper** local và **Kokoro** — nên một buổi phỏng vấn không cần bất kỳ key model nào. Đã kiểm chứng đầu-cuối trên Apple Silicon; ghép với `livekit-server --dev` là có stack offline hoàn toàn. Hiện mới có giọng tiếng Anh, và độ trễ mỗi lượt chưa đo chuẩn. Xem [docs/LOCAL_MODELS.md](docs/LOCAL_MODELS.md).
 > - **[2026.07]** **Đã lên Gemini 3.6 Flash + LiveKit Agents 1.6.** Phần chuẩn bị và chấm điểm chạy trên **Gemini 3.6 Flash**; stack giọng nói chuyển sang livekit-agents 1.6 (function calling sẵn sàng cho Gemini 3 ngay trên đường lượt nói), và phụ đề trực tiếp giờ đọc thành một đoạn liền cho mỗi người nói thay vì các dòng vụn.
 > - **[2026.07]** **Bản mã nguồn mở bỏ hẳn giới hạn — đã gỡ billing.** Cứ self-host với key của bạn: không cổng gói cước, không giới hạn số buổi phỏng vấn, không bảng billing. Thanh toán chỉ tồn tại ở bản hosted; schema của bản OSS nhờ vậy gọn hơn.
@@ -157,7 +168,7 @@ _(Trung thực là chính sách — không tuyên bố tính năng nào đã xon
 
 ## Phát hành
 
-Bản hiện tại: **[v0.3.0](https://github.com/ngoanpv/DeepInterview/releases/tag/v0.3.0)** (02/08/2026) — đường chạy model hoàn toàn cục bộ (Ollama + Whisper + Kokoro) để một buổi phỏng vấn không cần key model nào, đặt trên nền vòng lặp của v0.2.0: chuẩn bị → phỏng vấn giọng nói → chấm điểm → coach đã kiểm chứng trên provider thật, bản OSS không giới hạn và không billing, bề mặt API đã gia cố, và thư viện playbook cộng đồng đã nối vào question planner. Xem [Releases](https://github.com/ngoanpv/DeepInterview/releases) để đọc ghi chú; metadata trích dẫn nằm trong [`CITATION.cff`](CITATION.cff).
+Bản upstream hiện tại: **[v0.3.0](https://github.com/ngoanpv/DeepInterview/releases/tag/v0.3.0)** (02/08/2026) — đường chạy model hoàn toàn cục bộ (Ollama + Whisper + Kokoro) để một buổi phỏng vấn không cần key model nào, đặt trên nền vòng lặp của v0.2.0: chuẩn bị → phỏng vấn giọng nói → chấm điểm → coach đã kiểm chứng trên provider thật, bản OSS không giới hạn và không billing, bề mặt API đã gia cố, và thư viện playbook cộng đồng đã nối vào question planner. Xem [Releases](https://github.com/ngoanpv/DeepInterview/releases) để đọc ghi chú; metadata trích dẫn nằm trong [`CITATION.cff`](CITATION.cff).
 
 ## Kiến trúc
 
