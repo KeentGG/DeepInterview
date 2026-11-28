@@ -110,3 +110,21 @@ jobs:
           push: false
           cache-from: type=gha,scope=lightrag
           cache-to: type=gha,mode=max,scope=lightrag
+
+      # The web image builds the whole pnpm workspace, so a missing manifest in
+      # the deps stage only surfaces here. Build args mirror the compose
+      # defaults; they are static placeholders, never real secrets.
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          build-args: |
+            NEXT_PUBLIC_APP_URL=http://localhost:3000
+            NEXT_PUBLIC_SITE_URL=http://localhost:3000
+            NEXT_PUBLIC_SUPABASE_URL=
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=
+            NEXT_PUBLIC_SENTRY_DSN=
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
