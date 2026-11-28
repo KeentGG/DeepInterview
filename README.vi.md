@@ -211,8 +211,7 @@ Sơ đồ luồng request đầy đủ và thiết kế multi-agent nằm trong 
 
 ## Cộng đồng
 
-- **[GitHub Discussions](https://github.com/KeentGG/OpenInterview/discussions)** — câu hỏi, ý tưởng, yêu cầu language pack và playbook.
-- **[Issues](https://github.com/KeentGG/OpenInterview/issues)** — lỗi & tính năng (có sẵn template).
+- **[Issues](https://github.com/KeentGG/OpenInterview/issues)** — câu hỏi, ý tưởng, lỗi & tính năng (có sẵn template).
 - **[Thư viện playbook](skills/README.md)** — các pack ngân hàng câu hỏi xem được trực tiếp, ảnh hưởng thẳng tới câu hỏi mà AI đặt ra; rất mong bạn đóng góp ([Issues](https://github.com/KeentGG/OpenInterview/issues)).
 
 Được xây công khai, với [Claude Code](https://claude.com/claude-code) là một đồng tác giả được dùng rất nhiều — AI phỏng vấn đã từ chối phỏng vấn nó. Chúng tôi có trả lời issue — bỏ rơi người đóng góp là nguyên nhân số một khiến dự án mã nguồn mở chết, và chúng tôi không định làm vậy.

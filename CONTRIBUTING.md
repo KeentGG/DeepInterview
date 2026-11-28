@@ -159,8 +159,7 @@ rejected — provenance ("based on my onsite in 2026-06") helps us say yes.
 
 ## 8. Getting help
 
-- 🗣️ [GitHub Discussions](https://github.com/KeentGG/OpenInterview/discussions) for questions and design chat.
-- 🐛 [Issues](https://github.com/KeentGG/OpenInterview/issues) for bugs/features (use the templates).
+- 🐛 [Issues](https://github.com/KeentGG/OpenInterview/issues) for questions, bugs, and features (use the templates).
 - 📜 Be kind — we follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Welcome aboard. 🌍

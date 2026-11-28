@@ -211,8 +211,7 @@ Full request-flow diagrams and the multi-agent design live in [`docs/ARCHITECTUR
 
 ## Community
 
-- **[GitHub Discussions](https://github.com/KeentGG/OpenInterview/discussions)** — questions, ideas, language-pack and playbook requests.
-- **[Issues](https://github.com/KeentGG/OpenInterview/issues)** — bugs & features (templates provided).
+- **[Issues](https://github.com/KeentGG/OpenInterview/issues)** — questions, ideas, bugs & features (templates provided).
 - **[The playbook library](skills/README.md)** — browsable interview question-bank packs that directly shape the AI's questions; contributions welcome ([Issues](https://github.com/KeentGG/OpenInterview/issues)).
 
 Built in the open, with [Claude Code](https://claude.com/claude-code) as a heavily-used co-author — the AI interviewer declined to interview it. We respond to issues — ghosting contributors is the #1 cause of OSS death, and we don't intend to.

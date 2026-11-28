@@ -47,7 +47,7 @@ question-bank content policy in [CONTRIBUTING.md](../CONTRIBUTING.md).
    checks the technical contract (container, magic bytes, size budget) and
    prints each file's SHA-256 to paste into the PR.
 1. **Open a PR** with the persona entry (or a new persona following the
-   [existing pack pattern](https://github.com/KeentGG/OpenInterview/issues)), the
+   [existing pack pattern](../apps/web/lib/personas.ts)), the
    generation prompt(s), and the checklist above — plus the rendered files
    **attached to the PR or linked** (release, Drive, etc.).
 2. **Binaries never enter git history.** Do not commit media; `apps/web/

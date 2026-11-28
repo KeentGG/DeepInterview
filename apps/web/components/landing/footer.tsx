@@ -49,7 +49,6 @@ const DEVELOPER_LINKS: FooterLink[] = [
 ];
 
 const COMMUNITY_LINKS: FooterLink[] = [
-  { href: `${GITHUB_URL}/discussions`, label: "Discussions", external: true },
   { href: `${GITHUB_URL}/issues`, label: "Issues", external: true },
   { href: GITHUB_URL, label: "Contributing", external: true },
 ];
