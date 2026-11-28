@@ -35,7 +35,7 @@ This file is the single source of truth for transition work. Update it after eve
 - **Baseline:** main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Implementation complete 2026-11-28 (DeepSeek Flash). Both agent images run as `appuser` (uid 10001); Trivy misconfig `DS-0002` is cleared; CI now builds/loads both targets and checks non-root execution, API health, and worker import. Awaiting independent review before merge.
+- **Status:** Implementation complete 2026-11-28 (DeepSeek Flash). Both agent images run as `appuser` (uid 10001); Trivy misconfig `DS-0002` is cleared; CI now builds/loads both targets and checks non-root execution, an offline baked-model load, and a real trace write. PR #8 review fix round 1 applied (removed the recursive chown layers, tightened the CI proofs). Awaiting review/merge.
 - **Notes:** Close accepted `DS-0002` before moving to brand/conversion.
 
 ## Done
@@ -480,25 +480,30 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
 ### What changed
 
 - `apps/agent/Dockerfile` `base` stage, after `WORKDIR /app`:
-  `useradd --create-home --uid 10001 appuser` plus `HOME=/home/appuser`,
-  `HF_HOME=/home/appuser/.cache/huggingface`,
-  `UV_CACHE_DIR=/home/appuser/.cache/uv`. It is created before `uv sync` and
-  the `worker-deps` model bake, so the uv cache and the silero/turn-detector
-  weights land under the runtime user's home instead of `/root/.cache`.
-- `api` and `worker` final stages: `chown -R appuser:appuser /app
-  /home/appuser` then `USER appuser`. `base` and `worker-deps` stay root.
-  CMDs, `docker-compose.yml` commands, healthchecks, ports, and application
-  code are unchanged; no CMD change was needed because `uv run` works as
-  appuser once `/app` and the caches are owned by it.
+  `useradd --create-home --uid 10001 appuser && chown appuser:appuser /app`,
+  then `HOME=/home/appuser`, `HF_HOME=/home/appuser/.cache/huggingface`,
+  `UV_CACHE_DIR=/home/appuser/.cache/uv`, then `USER appuser`. Every later
+  stage inherits that user, so `uv sync` and the `worker-deps` model bake run
+  as appuser and the uv cache / silero+turn-detector weights land under its
+  home instead of `/root/.cache`.
+- `COPY --chown=appuser:appuser` on the lockfiles and `apps/agent/src` keeps
+  every project file appuser-owned, so the final stages need no recursive
+  `chown` layer (only `EXPOSE`/`CMD` follow their last `uv sync`). CMDs,
+  `docker-compose.yml` commands, healthchecks, ports, and application code are
+  unchanged; no CMD change was needed because `uv run` works as appuser once
+  `/app` and the caches are owned by it.
 - `.github/workflows/ci.yml` `docker-build`: the API step now uses `load: true`
   with tag `openinterview-agent-api:ci`; a new step builds/loads the `worker`
-  target as `openinterview-agent-worker:ci` with its own gha cache scope; three
-  new steps assert `id -u` == 10001 on both loaded images, boot the API and
-  poll `/health` (failing on any `Permission denied` log line), and import
-  `deepinterview_agent.worker` as appuser. A `Free runner disk space` step
-  removes unused preinstalled toolchains first, because four images (one of
-  them the multi-GB worker) must fit while buildkit holds their layers. The
-  lightrag and web steps are unchanged.
+  target as `openinterview-agent-worker:ci` with its own gha cache scope. The
+  smoke step boots the API, polls `/health`, fails on any `Permission denied`
+  log line, then writes a real trace with the baked `.venv/bin/python` (no
+  `uv run`) and asserts the JSONL exists, contains `trace_start`, and is owned
+  by uid 10001. The worker step runs the baked venv with `--network none` and
+  `HF_HUB_OFFLINE=1`: it imports the worker plus silero/turn-detector, calls
+  `Plugin.download_files()` on every registered plugin, and calls
+  `silero.VAD.load()`, all as uid 10001. A `Free runner disk space` step
+  removes unused preinstalled toolchains first. The lightrag and web steps are
+  unchanged.
 - `.github/workflows/ci.yml` `security`: the Trivy gate now scans
   `vuln,secret,misconfig` at HIGH/CRITICAL. With `DS-0002` fixed and the whole
   repo verified at 0 findings under that exact command, a future root-user
@@ -528,6 +533,53 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
 | `cd apps/agent && UV_PYTHON=3.11 uv sync --frozen && uv run pytest -q` | 212 passed, 1 skipped (baseline unchanged) |
 | Workflow YAML parse + `rhysd/actionlint:latest` | jobs `security`, `gitleaks`, `build`, `docker-build`; actionlint exit 0 |
 
+### Review fix round 1 — PR #8 (2026-11-28)
+
+Independent review found three issues; all fixed in this round. The checklist
+below supersedes the Dockerfile/CI description and build rows above; the other
+previous checks were re-run against the final images.
+
+Findings and fixes:
+
+1. Each final stage ran `chown -R appuser:appuser /app /home/appuser`, which
+   rewrote the whole venv + baked-weights tree into a ~3.2GB layer, duplicated
+   in both images, and dominated build/export time. Fix: create the user and
+   chown only the empty `/app` in `base`, `USER appuser` before every install
+   and the model bake, `COPY --chown=appuser:appuser` for the lockfiles and
+   source, and no chown in `api`/`worker`.
+2. The CI worker proof used `uv run` and asserted nothing about the baked
+   weights, so it did not show the image works without network. Fix: run the
+   baked `.venv/bin/python` with `--network none` and `HF_HUB_OFFLINE=1`,
+   import the worker + silero + turn_detector, call `Plugin.download_files()`
+   and `silero.VAD.load()`, and assert uid 10001.
+3. The API smoke only checked `/health`; nothing proved the app can write
+   traces as the runtime user. Fix: write a real trace with
+   `.venv/bin/python` and assert the JSONL exists, contains `trace_start`, and
+   is owned by uid 10001.
+
+Evidence (final images, local host):
+
+| Check | Result |
+| --- | --- |
+| `docker build --target api` | success, 1m11s (was 2m00s) |
+| `docker build --target worker` | success, 1m38s (was 5m04s; no export retry) |
+| image sizes | api 1.29GB (was 2.31GB), worker 3.46GB (was 6.66GB) |
+| `docker history --no-trunc <img> \| grep -c 'chown -R'` | 0 for both images; the 3.2GB layer is gone |
+| ownership in both images | `/app`, `/app/.venv`, `/app/src`, `pyproject.toml`, `/home/appuser` and the HF cache are `appuser`-owned; 0 files under `/home/appuser` owned by another user |
+| exact CI API smoke script (tag substituted) run locally | pass: `/health` 200, no `Permission denied`, trace `/app/.deepinterview/traces/tr_44b1458ede86.jsonl` owned by uid 10001 and contains `trace_start` |
+| exact CI worker script (tag substituted) run locally | pass: `worker import + offline model load ok as uid 10001` with `--network none` and `HF_HUB_OFFLINE=1` |
+| `docker run --rm <worker> .venv/bin/python` with `silero.VAD.load()` offline | loads a `VAD` |
+| `docker run --rm <img> id -u` | 10001 for both |
+| Trivy `fs --severity HIGH,CRITICAL --scanners vuln,secret,misconfig` (`2026-11-28T15:49:23Z`) | exit 0, 0 findings on all six targets |
+| `docker compose config -q` / `--profile local --profile live config -q` | both pass |
+| Workflow YAML parse + `rhysd/actionlint:latest` | pass (exit 0) |
+| `uv sync --frozen` + `pytest -q` (agent) | 212 passed, 1 skipped |
+
+Notes: `uv run` still works at runtime (CMD unchanged) because `/app`, the venv
+and the caches are appuser-owned from creation. The CI shell scripts were
+extracted from the workflow and executed verbatim with only the local image tag
+substituted; the workflow itself has not run for this branch (no PR opened).
+
 ### Deviations, observations and remaining risks
 
 - Deviated from the plan's "the `security` job is unaffected": its Trivy gate
@@ -547,13 +599,11 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
 - `DS-0026` (LOW, no Dockerfile `HEALTHCHECK`) remains by design: compose
   supplies healthchecks for both agent services. The closing gate is
   HIGH/CRITICAL only.
-- The worker image is large (2.04GB compressed view; 3.2GB build layer). Local
-  disk pressure caused the first export failure; the docker-build job now frees
+- The worker image is 3.46GB on disk and its build takes ~1m40s locally after
+  the chown-layer removal (api: 1.29GB / ~1m11s). The docker-build job frees
   unused runner toolchains before building, but the workflow has NOT been
   observed running for this branch (no PR was opened, and `push` only triggers
-  on `main`). Treat the first PR run as the CI verification, and expect the
-  worker build to roughly double the job's minutes (its own gha cache scope
-  keeps that down after the first run).
+  on `main`). Treat the first PR run as the CI verification.
 - Not run here: bringing up the full compose stack (lightrag + local models)
   and any LiveKit `start` with real keys — both are outside this item and need
   external services; the module import plus the offline weight check cover the
