@@ -140,6 +140,7 @@ with two corrections: Next target is 16.4.6 (not PR's stale 16.3.8), pypdf floor
   - `0e4e017` build(web): copy ee manifest and build web image in CI
   - `ae66eb5` style(web): apply prettier to lint-failing files
   - `903a306` ci: pin Python 3.11 and harden web/security gates
+  - `f0b7f84` ci: verify Python lockfiles are fresh
 - Changed files: `apps/web/package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`,
   `apps/web/next-env.d.ts`, `apps/agent/pyproject.toml`, `apps/agent/uv.lock`,
   `services/lightrag/pyproject.toml`, `services/lightrag/uv.lock`,
@@ -279,6 +280,9 @@ other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
     `fs --severity HIGH,CRITICAL --scanners vuln,secret --exit-code 1`.
     Misconfig scanning is intentionally excluded, so accepted `DS-0002` does
     not fail this gate.
+  - Added `uv lock --check` gates for `apps/agent` (before sync) and
+    `services/lightrag` (before pytest), so CI rejects stale committed
+    lockfiles.
 
 Local rechecks after the fix (all in this worktree):
 
@@ -290,6 +294,7 @@ Local rechecks after the fix (all in this worktree):
 | `UV_PYTHON=3.11 uv run pytest -q` (agent) | 212 passed, 1 skipped |
 | `UV_PYTHON=3.11 uv sync --frozen` + pytest (lightrag) | Python 3.11.15; 6 passed |
 | `UV_PYTHON=3.11 uv lock --check` (both) | pass |
+| CI lock gates: `(cd apps/agent && UV_PYTHON=3.11 uv lock --check)`; `UV_PYTHON=3.11 uv --directory services/lightrag lock --check` | both pass (`Resolved … in 2ms`) |
 | CI Trivy command (`vuln,secret`, `--exit-code 1`) | exit 0; 0 vulns/secrets on all three lockfiles |
 | `docker buildx build --load -t openinterview-web:ci ...` | success |
 | Web image boot smoke (`/api/health`, `/`) | pass; logs show Next ready (local port 3001 because host 3000 was occupied) |
@@ -319,4 +324,5 @@ Local rechecks after the fix (all in this worktree):
 - CI fix round complete 2026-11-28 (DeepSeek Flash): pinned Python 3.11/uv,
   durable web-image boot smoke, and a Trivy vuln+secret gate. Replacement run
   https://github.com/KeentGG/OpenInterview/actions/runs/46156714212 is green.
+  The final `uv lock --check` gate (`f0b7f84`) is pushed; its run is pending.
   Awaiting independent security review.
