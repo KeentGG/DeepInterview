@@ -101,7 +101,7 @@ export default async function PrepPage({
       {/* Header */}
       <header className="flex items-center justify-between">
         <Link href="/" className="no-underline">
-          <Eyebrow>DeepInterview</Eyebrow>
+          <Eyebrow>OpenInterview</Eyebrow>
         </Link>
         <div className="flex items-center gap-3">
           {isSample && <Badge variant="outline">Preview (sample data)</Badge>}

@@ -18,10 +18,14 @@ export function Nav() {
   return (
     <nav className="sticky top-0 z-50 border-b border-line bg-paper/80 backdrop-blur-md">
       <Container className="flex h-[66px] items-center justify-between">
-        <a href="#top" className="flex items-center gap-[9px]">
+        <a
+          href="#top"
+          aria-label="OpenInterview"
+          className="flex min-w-0 items-center gap-[9px]"
+        >
           <BrandMark size={22} />
-          <span className="text-[17px] font-semibold tracking-[-0.01em]">
-            DeepInterview
+          <span className="hidden text-[17px] font-semibold tracking-[-0.01em] min-[480px]:inline">
+            OpenInterview
           </span>
         </a>
 
@@ -33,7 +37,7 @@ export function Nav() {
           ))}
         </div>
 
-        <div className="flex items-center gap-3.5">
+        <div className="flex shrink-0 items-center gap-3.5">
           <a
             href={GITHUB_URL}
             target="_blank"

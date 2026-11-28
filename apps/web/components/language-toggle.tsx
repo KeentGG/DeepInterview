@@ -3,21 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import {
+  emitLocaleChange,
+  LOCALE_CHANGE_EVENT,
+  readLocaleCookie,
+} from "@/lib/i18n/client";
 import { cn } from "@/lib/cn";
 
 const OPTIONS: { value: Locale; label: string }[] = [
   { value: "en", label: "EN" },
   { value: "vi", label: "VI" },
 ];
-
-function readLocaleCookie(): Locale {
-  if (typeof document === "undefined") return "en";
-  const match = document.cookie
-    .split("; ")
-    .find((c) => c.startsWith("locale="));
-  const value = match?.split("=")[1];
-  return value === "vi" ? "vi" : "en";
-}
 
 /**
  * Minimal locale switcher. Persists the choice in a `locale` cookie and
@@ -28,9 +24,13 @@ export function LanguageToggle({ className }: { className?: string }) {
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("en");
 
-  // Read the cookie after mount so SSR markup stays stable (no hydration drift).
+  // Read the cookie after mount so SSR markup stays stable (no hydration drift),
+  // and keep sibling toggles in sync when another one changes the locale.
   useEffect(() => {
-    setLocale(readLocaleCookie());
+    const sync = () => setLocale(readLocaleCookie());
+    sync();
+    window.addEventListener(LOCALE_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(LOCALE_CHANGE_EVENT, sync);
   }, []);
 
   const choose = useCallback(
@@ -38,6 +38,7 @@ export function LanguageToggle({ className }: { className?: string }) {
       if (next === locale) return;
       document.cookie = `locale=${next}; path=/; max-age=31536000; samesite=lax`;
       setLocale(next);
+      emitLocaleChange(next);
       router.refresh();
     },
     [locale, router],

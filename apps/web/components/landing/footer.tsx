@@ -49,7 +49,6 @@ const DEVELOPER_LINKS: FooterLink[] = [
 ];
 
 const COMMUNITY_LINKS: FooterLink[] = [
-  { href: `${GITHUB_URL}/discussions`, label: "Discussions", external: true },
   { href: `${GITHUB_URL}/issues`, label: "Issues", external: true },
   { href: GITHUB_URL, label: "Contributing", external: true },
 ];
@@ -63,7 +62,7 @@ export function Footer() {
             <div className="mb-3 flex items-center gap-[9px]">
               <BrandMark size={22} />
               <span className="text-[17px] font-semibold tracking-[-0.01em]">
-                DeepInterview
+                OpenInterview
               </span>
             </div>
             <p className="max-w-[280px] text-sm text-muted">
@@ -76,7 +75,7 @@ export function Footer() {
           <FooterCol title="Community" links={COMMUNITY_LINKS} />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line pt-[22px] text-[13px] text-faint">
-          <span>© 2026 DeepInterview · Apache 2.0</span>
+          <span>© 2026 OpenInterview · Apache 2.0</span>
           <span className="font-mono">Built in the open</span>
         </div>
       </Container>

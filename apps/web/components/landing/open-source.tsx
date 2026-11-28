@@ -9,7 +9,7 @@ export function OpenSource() {
   return (
     <section id="oss" className="scroll-mt-24 border-t border-line py-[84px]">
       <Container className="grid items-center gap-[54px] md:grid-cols-2">
-        <Reveal>
+        <Reveal className="min-w-0">
           <Eyebrow>Open source</Eyebrow>
           <h2 className="serif my-3.5 text-[36px]">
             Run it yourself in one command.
@@ -39,7 +39,7 @@ export function OpenSource() {
           </div>
         </Reveal>
 
-        <Reveal>
+        <Reveal className="min-w-0">
           <div className="overflow-hidden rounded-[13px] border border-[#26262B] bg-[#161619] shadow-[0_24px_50px_-30px_rgba(0,0,0,0.5)]">
             <div className="flex gap-[7px] border-b border-[#26262B] px-3.5 py-3">
               <span className="h-2.5 w-2.5 rounded-full bg-[#34343A]" />
@@ -52,8 +52,8 @@ export function OpenSource() {
               </span>
               {"\n"}
               <span className="text-[#7C84F2]">$</span> git clone
-              github.com/ngoanpv/DeepInterview{"\n"}
-              <span className="text-[#7C84F2]">$</span> cd DeepInterview{"\n"}
+              github.com/KeentGG/OpenInterview{"\n"}
+              <span className="text-[#7C84F2]">$</span> cd OpenInterview{"\n"}
               <span className="text-[#7C84F2]">$</span> docker compose up{"\n"}
               <span className="text-[#5BBF8B]">
                 ✓ web → http://localhost:3000

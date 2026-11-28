@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for the idea! Please search
-        [existing issues and Discussions](https://github.com/ngoanpv/DeepInterview/issues)
+        [existing issues](https://github.com/KeentGG/OpenInterview/issues)
         first — there may already be a thread.
 
   - type: textarea
@@ -72,7 +72,7 @@ body:
     attributes:
       label: Before submitting
       options:
-        - label: I searched existing issues and Discussions and this is not a duplicate.
+        - label: I searched existing issues and this is not a duplicate.
           required: true
         - label: This is a feature request, not a bug report or a support question.
           required: true

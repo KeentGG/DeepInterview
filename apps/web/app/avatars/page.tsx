@@ -5,9 +5,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AvatarGallery } from "@/components/avatar/avatar-gallery";
 
 export const metadata: Metadata = {
-  title: "Avatar system · DeepInterview",
+  title: "Avatar system · OpenInterview",
   description:
-    "Preview the DeepInterview avatar personas and their idle ⇄ speaking states.",
+    "Preview the OpenInterview avatar personas and their idle ⇄ speaking states.",
 };
 
 /**
@@ -20,7 +20,7 @@ export default function AvatarsPage() {
     <main className="mx-auto max-w-[1080px] px-6 py-12">
       <header className="flex items-center justify-between">
         <Link href="/" className="no-underline">
-          <Eyebrow>DeepInterview</Eyebrow>
+          <Eyebrow>OpenInterview</Eyebrow>
         </Link>
         <ThemeToggle />
       </header>

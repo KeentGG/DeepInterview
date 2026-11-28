@@ -190,7 +190,7 @@ function Scaffold({
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
             <span className="font-mono text-[10px] tracking-[0.16em] text-faint">
-              DEEPINTERVIEW · {mode === "coach" ? "SOCRATIC COACH" : "LIVE"}
+              OPENINTERVIEW · {mode === "coach" ? "SOCRATIC COACH" : "LIVE"}
             </span>
             {/* Page heading for screen-reader navigation (styled as before). */}
             <h1 className="font-serif text-[17px] font-normal text-ink">

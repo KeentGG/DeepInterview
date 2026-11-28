@@ -8,7 +8,7 @@ import {
 
 const VALID = JSON.stringify({
   version: 1,
-  release: "https://github.com/ngoanpv/DeepInterview/releases",
+  release: "https://github.com/KeentGG/OpenInterview/releases",
   packs: [
     {
       persona: "recruiter",
@@ -17,7 +17,7 @@ const VALID = JSON.stringify({
         {
           name: "recruiter-idle.mp4",
           sha256: "a".repeat(64),
-          url: "https://github.com/ngoanpv/DeepInterview/releases/download/avatars-v1/recruiter-idle.mp4",
+          url: "https://github.com/KeentGG/OpenInterview/releases/download/avatars-v1/recruiter-idle.mp4",
         },
       ],
     },
@@ -43,8 +43,8 @@ describe("parseManifest", () => {
     expect(() =>
       parseManifest(
         VALID.replace(
-          "https://github.com/ngoanpv/DeepInterview/releases/download",
-          "http://github.com/ngoanpv/DeepInterview/releases/download",
+          "https://github.com/KeentGG/OpenInterview/releases/download",
+          "http://github.com/KeentGG/OpenInterview/releases/download",
         ),
       ),
     ).toThrow(/https/);

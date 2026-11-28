@@ -6,7 +6,7 @@ import { runTraces } from "./commands/traces";
 const [, , command, ...args] = process.argv;
 
 function printHelp(): void {
-  console.log(`deepinterview — DeepInterview CLI
+  console.log(`deepinterview — OpenInterview CLI
 
 Usage:
   deepinterview init             Guided setup: pick a run mode, enter provider

@@ -1,4 +1,4 @@
-# Run DeepInterview on local models
+# Run OpenInterview on local models
 
 Every AI stage — the LLM, speech-to-text and text-to-speech — can run on your own
 machine. No OpenAI key, no Gemini key, no Deepgram key, no Cartesia key, and
@@ -10,7 +10,7 @@ LLM_PROVIDER=ollama   STT_PROVIDER=whisper   TTS_PROVIDER=kokoro
 
 All three are reached over the **OpenAI HTTP shape**, so they take a base URL
 instead of an API key, and any compatible server works — Ollama, vLLM, LM Studio,
-llama.cpp, Speaches, kokoro-fastapi. DeepInterview added no new dependency for
+llama.cpp, Speaches, kokoro-fastapi. OpenInterview added no new dependency for
 this: it reuses `livekit-plugins-openai` with a `base_url` override.
 
 > ### One honest caveat, up front
@@ -255,7 +255,7 @@ assembling your own local speech loop.
 It is **not** wired in as a provider here, and the reason is worth stating: it
 exposes only a complete speech-to-speech session (`/v1/realtime`) — no
 `/v1/audio/transcriptions`, no `/v1/audio/speech`, and no way to disable its LLM
-stage. DeepInterview needs to own the LLM turn itself (the interviewer calls
+stage. OpenInterview needs to own the LLM turn itself (the interviewer calls
 `save_answer` / `get_next_question`, and an adaptive Director sits behind it), so
 a black-box pipeline that answers for us can't slot into the cascade. If it ever
 grows a transcription-only session mode, it would drop straight into
