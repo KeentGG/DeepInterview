@@ -42,7 +42,7 @@ function CoachLanding({
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-16">
       <Link href="/prep" className="no-underline">
-        <Eyebrow>DeepInterview · Prep Coach</Eyebrow>
+        <Eyebrow>OpenInterview · Prep Coach</Eyebrow>
       </Link>
       <section className="mt-10 rounded-card border border-line bg-paper p-8 sm:p-10">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">

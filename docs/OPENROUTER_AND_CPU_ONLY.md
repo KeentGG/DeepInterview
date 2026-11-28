@@ -1,6 +1,6 @@
 # Running with OpenRouter (OpenAI-compatible) & on CPU-only machines
 
-This guide covers two things that trip people up: pointing DeepInterview's LLM at an OpenAI-compatible
+This guide covers two things that trip people up: pointing OpenInterview's LLM at an OpenAI-compatible
 gateway like **OpenRouter**, and getting useful mock-interview practice on a **CPU-only** machine that
 can't run the real-time voice stack.
 

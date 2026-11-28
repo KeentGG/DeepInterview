@@ -51,7 +51,7 @@ export function HeroMock() {
         <span className="h-2.5 w-2.5 rounded-full bg-[#E4E0D7] dark:bg-[#34343A]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#E4E0D7] dark:bg-[#34343A]" />
         <span className="ml-2 rounded-md border border-line-2 bg-[#F4F1EA] px-[9px] py-[3px] font-mono text-[11.5px] text-faint dark:bg-[#222227]">
-          deepinterview.ai/session/8f2a
+          OpenInterview · session/8f2a
         </span>
       </div>
       <div className="grid grid-cols-[150px_1fr]">

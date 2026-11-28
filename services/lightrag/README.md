@@ -1,6 +1,6 @@
 # services/lightrag — Knowledge sidecar (WP-8)
 
-The DeepInterview **knowledge service** that powers the Prep Coach. It keeps one
+The OpenInterview **knowledge service** that powers the Prep Coach. It keeps one
 RAG store/graph **per `user_id`** and answers grounded questions with citations.
 
 Runs as a standalone Docker sidecar on **:9621**. This is a self-contained `uv`

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.svg" width="132" alt="DeepInterview" />
+<img src="assets/logo.svg" width="132" alt="OpenInterview" />
 
 # OpenInterview: Voice-First, Multilingual AI Mock Interviewer
 
@@ -9,12 +9,11 @@
 > **Community fork:** OpenInterview is a community-maintained fork of [DeepInterview](https://github.com/ngoanpv/DeepInterview), whose upstream repository is inactive. Development and pull requests continue here.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-4338CA.svg)](LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/ngoanpv/DeepInterview/ci.yml?branch=main&label=build)](https://github.com/ngoanpv/DeepInterview/actions)
-[![Release](https://img.shields.io/github/v/release/ngoanpv/DeepInterview?include_prereleases&label=release&color=4338CA)](https://github.com/ngoanpv/DeepInterview/releases)
-[![Stars](https://img.shields.io/github/stars/ngoanpv/DeepInterview?style=social)](https://github.com/ngoanpv/DeepInterview/stargazers)
+[![Build](https://img.shields.io/github/actions/workflow/status/KeentGG/OpenInterview/ci.yml?branch=main&label=build)](https://github.com/KeentGG/OpenInterview/actions)
+[![Release](https://img.shields.io/github/v/release/KeentGG/OpenInterview?include_prereleases&label=release&color=4338CA)](https://github.com/KeentGG/OpenInterview/releases)
+[![Stars](https://img.shields.io/github/stars/KeentGG/OpenInterview?style=social)](https://github.com/KeentGG/OpenInterview/stargazers)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-4338CA.svg)](apps/agent)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-4338CA.svg)](pnpm-workspace.yaml)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fT7Ecbyq)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-4338CA.svg)](CONTRIBUTING.md)
 
 **UI in English + Tiếng Việt · voice interviews in 7 languages incl. Vietnamese (more as packs land) · no sign-in required to self-host**
@@ -23,14 +22,14 @@
 
 [Quickstart](#quickstart) · [Why](#why-openinterview) · [Features](#features) · [Architecture](#architecture) · [Community](#community) · [Contributing](#contributing)
 
-**Contributions wanted** — [interview question-bank packs](https://github.com/ngoanpv/DeepInterview/issues/38) · [language packs & provider adapters](docs/GOOD_FIRST_ISSUES.md) · your packs get asked in real interviews, and no API keys are needed to develop.
+**Contributions wanted** — [interview question-bank packs](https://github.com/KeentGG/OpenInterview/issues) · [language packs & provider adapters](docs/GOOD_FIRST_ISSUES.md) · your packs get asked in real interviews, and no API keys are needed to develop.
 
 </div>
 
 ---
 
 <!-- HERO: live voice interview → scored report, recorded from the real app. -->
-![DeepInterview demo — a live voice interview with streaming captions, then the scored report](assets/demo.gif)
+![OpenInterview demo — a live voice interview with streaming captions, then the scored report](assets/demo.gif)
 
 > **Upload your CV and a job description. Talk to an AI interviewer. Get scored — and coached on exactly what you missed.** Voice-first, English-first, and multilingual by design.
 
@@ -212,10 +211,9 @@ Full request-flow diagrams and the multi-agent design live in [`docs/ARCHITECTUR
 
 ## Community
 
-- **[Discord](https://discord.gg/fT7Ecbyq)** — join the build-in-public chat.
-- **[GitHub Discussions](https://github.com/ngoanpv/DeepInterview/discussions)** — questions, ideas, language-pack and playbook requests.
-- **[Issues](https://github.com/ngoanpv/DeepInterview/issues)** — bugs & features (templates provided).
-- **[The playbook library](skills/README.md)** — browsable interview question-bank packs that directly shape the AI's questions; contributions welcome ([#38](https://github.com/ngoanpv/DeepInterview/issues/38)).
+- **[GitHub Discussions](https://github.com/KeentGG/OpenInterview/discussions)** — questions, ideas, language-pack and playbook requests.
+- **[Issues](https://github.com/KeentGG/OpenInterview/issues)** — bugs & features (templates provided).
+- **[The playbook library](skills/README.md)** — browsable interview question-bank packs that directly shape the AI's questions; contributions welcome ([Issues](https://github.com/KeentGG/OpenInterview/issues)).
 
 Built in the open, with [Claude Code](https://claude.com/claude-code) as a heavily-used co-author — the AI interviewer declined to interview it. We respond to issues — ghosting contributors is the #1 cause of OSS death, and we don't intend to.
 
@@ -233,17 +231,17 @@ assembling your own.
 
 ## Contributing
 
-We'd love your help — especially **interview question-bank packs** ([#38](https://github.com/ngoanpv/DeepInterview/issues/38)), **language packs**, **provider adapters**, and **accessibility**. Start with:
+We'd love your help — especially **interview question-bank packs** ([Issues](https://github.com/KeentGG/OpenInterview/issues)), **language packs**, **provider adapters**, and **accessibility**. Start with:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, the monorepo map, the work-package model, the provider-adapter (mock-first) pattern, and how to run **offline with no keys**.
 - [Good first issues](docs/GOOD_FIRST_ISSUES.md) — concrete, scoped tasks drawn from real gaps.
 - [Code of Conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md).
 
-[![Contributors](https://contrib.rocks/image?repo=ngoanpv/DeepInterview)](https://github.com/ngoanpv/DeepInterview/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=KeentGG/OpenInterview)](https://github.com/KeentGG/OpenInterview/graphs/contributors)
 
 ## Citation
 
-If DeepInterview helps your work, please cite it. Full metadata is in [`CITATION.cff`](CITATION.cff).
+If OpenInterview helps your work, please cite the upstream DeepInterview project. Full metadata is in [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
 @software{deepinterview2026,

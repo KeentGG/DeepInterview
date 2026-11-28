@@ -7,11 +7,12 @@ body:
     attributes:
       value: |
         Thanks for taking the time to file a bug! Please search
-        [existing issues](https://github.com/ngoanpv/DeepInterview/issues)
+        [existing issues](https://github.com/KeentGG/OpenInterview/issues)
         first to avoid duplicates.
 
-        **Security issue?** Do not file it here — email
-        `security@deepinterview.dev` instead (see `SECURITY.md`).
+        **Security issue?** Do not file it here — open a
+        [private security advisory](https://github.com/KeentGG/OpenInterview/security/advisories/new)
+        instead (see `SECURITY.md`).
 
   - type: textarea
     id: what-happened

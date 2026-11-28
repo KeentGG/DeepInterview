@@ -1,6 +1,6 @@
-# Supabase — DeepInterview
+# Supabase — OpenInterview
 
-This directory holds the database schema for DeepInterview. Postgres + Auth +
+This directory holds the database schema for OpenInterview. Postgres + Auth +
 Storage are provided by Supabase; the agent writes interview state to two tables.
 
 ## Tables

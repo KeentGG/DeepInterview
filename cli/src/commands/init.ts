@@ -429,7 +429,7 @@ function runNonInteractive(
   syncCopy(target, join(root, "apps", "agent", ".env"), root, force);
   syncCopy(target, join(root, "apps", "web", ".env.local"), root, force);
   console.log(
-    `\nDeepInterview supports ${LANGUAGES.length} languages (English-first).`,
+    `\nOpenInterview supports ${LANGUAGES.length} languages (English-first).`,
   );
 }
 
@@ -476,7 +476,7 @@ export async function runInit(args: string[]): Promise<void> {
     ? parseEnv(readFileSync(target, "utf8"))
     : {};
 
-  intro("DeepInterview setup");
+  intro("OpenInterview setup");
   if (Object.keys(existing).length > 0) {
     log.info(
       "Found an existing .env — current values are offered as defaults.",

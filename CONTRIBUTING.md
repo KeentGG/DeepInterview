@@ -1,8 +1,8 @@
-# Contributing to DeepInterview
+# Contributing to OpenInterview
 
 Thanks for helping build an open, multilingual, voice-first interview coach. This guide gets you from a clean clone to a green test run, explains how the monorepo is organized, and describes the conventions we hold PRs to.
 
-DeepInterview is an **early open build**. The most valuable contributions right now are **language packs**, **provider adapters**, and **accessibility** — see [`docs/GOOD_FIRST_ISSUES.md`](docs/GOOD_FIRST_ISSUES.md).
+OpenInterview is an **early open build**. The most valuable contributions right now are **language packs**, **provider adapters**, and **accessibility** — see [`docs/GOOD_FIRST_ISSUES.md`](docs/GOOD_FIRST_ISSUES.md).
 
 ---
 
@@ -18,8 +18,8 @@ DeepInterview is an **early open build**. The most valuable contributions right 
 **The 60-second offline setup (no API keys required)**
 
 ```bash
-git clone https://github.com/ngoanpv/DeepInterview.git
-cd deepinterview
+git clone https://github.com/KeentGG/OpenInterview.git
+cd OpenInterview
 
 pnpm install      # JS/TS workspace (apps/web, packages/shared, cli)
 pnpm build        # turbo build — compiles shared contracts first, then cli + web
@@ -159,8 +159,8 @@ rejected — provenance ("based on my onsite in 2026-06") helps us say yes.
 
 ## 8. Getting help
 
-- 🗣️ [GitHub Discussions](https://github.com/ngoanpv/DeepInterview/discussions) for questions and design chat.
-- 🐛 [Issues](https://github.com/ngoanpv/DeepInterview/issues) for bugs/features (use the templates).
+- 🗣️ [GitHub Discussions](https://github.com/KeentGG/OpenInterview/discussions) for questions and design chat.
+- 🐛 [Issues](https://github.com/KeentGG/OpenInterview/issues) for bugs/features (use the templates).
 - 📜 Be kind — we follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Welcome aboard. 🌍

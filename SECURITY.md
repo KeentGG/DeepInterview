@@ -1,6 +1,6 @@
 # Security Policy
 
-DeepInterview is a voice-first AI mock-interview platform. It handles candidate
+OpenInterview is a voice-first AI mock-interview platform. It handles candidate
 CVs, job descriptions, interview transcripts, and recordings — so we take
 security and privacy seriously and welcome responsible disclosure.
 
@@ -10,7 +10,8 @@ security and privacy seriously and welcome responsible disclosure.
 pull requests.** A public report tells attackers about the problem before a fix
 exists.
 
-Instead, email **security@deepinterview.dev** with:
+Instead, open a **private security advisory** at
+**https://github.com/KeentGG/OpenInterview/security/advisories/new** with:
 
 - a description of the issue and the impact you believe it has;
 - the affected component (`apps/web`, `apps/agent`, `services/lightrag`, `cli`,
@@ -25,12 +26,13 @@ before any public disclosure, and that your testing does not access, modify, or
 destroy data that is not your own. We are happy to credit reporters in the
 release notes unless you prefer to remain anonymous.
 
-For sensitive reports you may encrypt your email; request our PGP key in an
-initial (non-sensitive) message to the same address.
+Private advisories let us collaborate on the fix and coordinate disclosure
+without exposing the report publicly. Do not include secrets or personal data
+in the advisory description unless it is necessary to reproduce the issue.
 
 ## Supported versions
 
-DeepInterview is **pre-v0.1 and under active development** — there is no
+OpenInterview is **pre-v0.1 and under active development** — there is no
 generally available release line yet. During this phase, security fixes land on
 the default branch (`main`) only; there are no maintained back-ports. Always run
 the latest `main` (or the latest tagged pre-release, once tags exist) to receive
@@ -45,7 +47,7 @@ This table will be replaced with a real version matrix once we cut `v0.1`.
 
 ## Secrets and configuration
 
-DeepInterview is **secrets-via-env-vars only**. To keep credentials out of the
+OpenInterview is **secrets-via-env-vars only**. To keep credentials out of the
 codebase and out of git history:
 
 - **Never commit `.env`, `.env.local`, real keys, tokens, or recordings.** Only

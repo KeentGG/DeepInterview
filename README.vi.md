@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.svg" width="132" alt="DeepInterview" />
+<img src="assets/logo.svg" width="132" alt="OpenInterview" />
 
 # OpenInterview: AI phỏng vấn thử bằng giọng nói, đa ngôn ngữ
 
@@ -9,12 +9,11 @@
 > **Fork do cộng đồng:** OpenInterview là bản fork do cộng đồng duy trì từ [DeepInterview](https://github.com/ngoanpv/DeepInterview), dự án gốc hiện không còn hoạt động. Việc phát triển và pull request được tiếp tục tại đây.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-4338CA.svg)](LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/ngoanpv/DeepInterview/ci.yml?branch=main&label=build)](https://github.com/ngoanpv/DeepInterview/actions)
-[![Release](https://img.shields.io/github/v/release/ngoanpv/DeepInterview?include_prereleases&label=release&color=4338CA)](https://github.com/ngoanpv/DeepInterview/releases)
-[![Stars](https://img.shields.io/github/stars/ngoanpv/DeepInterview?style=social)](https://github.com/ngoanpv/DeepInterview/stargazers)
+[![Build](https://img.shields.io/github/actions/workflow/status/KeentGG/OpenInterview/ci.yml?branch=main&label=build)](https://github.com/KeentGG/OpenInterview/actions)
+[![Release](https://img.shields.io/github/v/release/KeentGG/OpenInterview?include_prereleases&label=release&color=4338CA)](https://github.com/KeentGG/OpenInterview/releases)
+[![Stars](https://img.shields.io/github/stars/KeentGG/OpenInterview?style=social)](https://github.com/KeentGG/OpenInterview/stargazers)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-4338CA.svg)](apps/agent)
 [![pnpm](https://img.shields.io/badge/pnpm-workspace-4338CA.svg)](pnpm-workspace.yaml)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fT7Ecbyq)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-4338CA.svg)](CONTRIBUTING.md)
 
 **Giao diện tiếng Anh + Tiếng Việt · phỏng vấn bằng giọng nói ở 7 ngôn ngữ, có tiếng Việt (thêm nữa khi có pack mới) · self-host không cần đăng nhập**
@@ -23,14 +22,14 @@
 
 [Bắt đầu nhanh](#bắt-đầu-nhanh) · [Vì sao](#vì-sao-là-openinterview) · [Tính năng](#tính-năng) · [Kiến trúc](#kiến-trúc) · [Cộng đồng](#cộng-đồng) · [Đóng góp](#đóng-góp)
 
-**Rất mong bạn đóng góp** — [pack ngân hàng câu hỏi](https://github.com/ngoanpv/DeepInterview/issues/38) · [language pack & provider adapter](docs/GOOD_FIRST_ISSUES.md) · pack bạn viết sẽ được hỏi trong buổi phỏng vấn thật, và phát triển thì không cần API key nào cả.
+**Rất mong bạn đóng góp** — [pack ngân hàng câu hỏi](https://github.com/KeentGG/OpenInterview/issues) · [language pack & provider adapter](docs/GOOD_FIRST_ISSUES.md) · pack bạn viết sẽ được hỏi trong buổi phỏng vấn thật, và phát triển thì không cần API key nào cả.
 
 </div>
 
 ---
 
 <!-- HERO: live voice interview → scored report, recorded from the real app. -->
-![Demo DeepInterview — buổi phỏng vấn bằng giọng nói với phụ đề chạy trực tiếp, rồi tới báo cáo chấm điểm](assets/demo.gif)
+![Demo OpenInterview — buổi phỏng vấn bằng giọng nói với phụ đề chạy trực tiếp, rồi tới báo cáo chấm điểm](assets/demo.gif)
 
 > **Tải lên CV và mô tả công việc. Nói chuyện với một AI phỏng vấn. Nhận điểm — và được hướng dẫn đúng chỗ bạn còn thiếu.** Ưu tiên giọng nói, ưu tiên tiếng Anh, và đa ngôn ngữ ngay từ thiết kế.
 
@@ -212,10 +211,9 @@ Sơ đồ luồng request đầy đủ và thiết kế multi-agent nằm trong 
 
 ## Cộng đồng
 
-- **[Discord](https://discord.gg/fT7Ecbyq)** — vào chat xây dựng công khai cùng nhau.
-- **[GitHub Discussions](https://github.com/ngoanpv/DeepInterview/discussions)** — câu hỏi, ý tưởng, yêu cầu language pack và playbook.
-- **[Issues](https://github.com/ngoanpv/DeepInterview/issues)** — lỗi & tính năng (có sẵn template).
-- **[Thư viện playbook](skills/README.md)** — các pack ngân hàng câu hỏi xem được trực tiếp, ảnh hưởng thẳng tới câu hỏi mà AI đặt ra; rất mong bạn đóng góp ([#38](https://github.com/ngoanpv/DeepInterview/issues/38)).
+- **[GitHub Discussions](https://github.com/KeentGG/OpenInterview/discussions)** — câu hỏi, ý tưởng, yêu cầu language pack và playbook.
+- **[Issues](https://github.com/KeentGG/OpenInterview/issues)** — lỗi & tính năng (có sẵn template).
+- **[Thư viện playbook](skills/README.md)** — các pack ngân hàng câu hỏi xem được trực tiếp, ảnh hưởng thẳng tới câu hỏi mà AI đặt ra; rất mong bạn đóng góp ([Issues](https://github.com/KeentGG/OpenInterview/issues)).
 
 Được xây công khai, với [Claude Code](https://claude.com/claude-code) là một đồng tác giả được dùng rất nhiều — AI phỏng vấn đã từ chối phỏng vấn nó. Chúng tôi có trả lời issue — bỏ rơi người đóng góp là nguyên nhân số một khiến dự án mã nguồn mở chết, và chúng tôi không định làm vậy.
 
@@ -232,17 +230,17 @@ cục bộ của dự án này nhất, và là chỗ tốt nhất để bắt đ
 
 ## Đóng góp
 
-Chúng tôi rất mong bạn giúp một tay — đặc biệt là **pack ngân hàng câu hỏi** ([#38](https://github.com/ngoanpv/DeepInterview/issues/38)), **language pack**, **provider adapter**, và **khả năng tiếp cận (accessibility)**. Bắt đầu từ:
+Chúng tôi rất mong bạn giúp một tay — đặc biệt là **pack ngân hàng câu hỏi** ([Issues](https://github.com/KeentGG/OpenInterview/issues)), **language pack**, **provider adapter**, và **khả năng tiếp cận (accessibility)**. Bắt đầu từ:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup dev, bản đồ monorepo, mô hình work-package, mẫu provider-adapter (mock-first), và cách chạy **offline không cần key**.
 - [Good first issues](docs/GOOD_FIRST_ISSUES.md) — các việc cụ thể, phạm vi rõ ràng, rút ra từ khoảng trống thật.
 - [Code of Conduct](CODE_OF_CONDUCT.md) · [Chính sách bảo mật](SECURITY.md).
 
-[![Contributors](https://contrib.rocks/image?repo=ngoanpv/DeepInterview)](https://github.com/ngoanpv/DeepInterview/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=KeentGG/OpenInterview)](https://github.com/KeentGG/OpenInterview/graphs/contributors)
 
 ## Trích dẫn
 
-Nếu DeepInterview giúp ích cho công việc của bạn, hãy trích dẫn nó. Metadata đầy đủ nằm trong [`CITATION.cff`](CITATION.cff).
+Nếu OpenInterview giúp ích cho công việc của bạn, hãy trích dẫn dự án upstream DeepInterview. Metadata đầy đủ nằm trong [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
 @software{deepinterview2026,
