@@ -34,8 +34,8 @@ This file is the single source of truth for transition work. Update it after eve
 - **Baseline:** main `8a713cb28ec1dc93ece064858747ab4bb82c0709`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Review/QA fixes applied and pushed; ready for re-review.
-- **Notes:** User-facing branding and fork links are updated. Internal identifiers, persisted keys, and upstream attribution are unchanged; the hero mock uses a neutral session label (no unowned fork domain). Fork Issues and private vulnerability reporting are enabled; Discussions is disabled, so community links route to Issues.
+- **Status:** Brand QA and locale-switch fixes applied and pushed; ready for re-review.
+- **Notes:** User-facing branding and fork links are updated. Internal identifiers, persisted keys, and upstream attribution are unchanged; the hero mock uses a neutral session label (no unowned fork domain). Fork Issues and private vulnerability reporting are enabled; Discussions is disabled, so community links route to Issues. The VI toggle now updates client hooks immediately via a shared locale-change event (server components still refresh).
 
 ## Done
 
@@ -808,3 +808,20 @@ Audits:
 - `apps/web/lib/personas.ts` exists for the new `docs/AVATARS.md` relative link.
 
 Remaining manual QA: re-check the 390px landing nav and open-source section in light/dark, plus the standard 1440px flow/EN-VI/OG pass. No blockers.
+
+### Locale-switch client-hook fix (2026-11-29)
+
+- **Bug:** choosing VI wrote `locale=vi` and the server rendered `<html lang="vi">`, but `useMessages()` / `useLocale()` stayed on EN. `router.refresh()` re-renders server components without remounting client hooks, so their mount-only cookie reads never ran again.
+- **Fix commit:** `ddc5c77a5b1f8b2bb574c165503e52ab65eddbfd` (`fix(i18n): sync client locale hooks on language switch`).
+- **Root cause fix:** `apps/web/lib/i18n/client.ts` exports `LOCALE_CHANGE_EVENT` / `emitLocaleChange()` and a shared `readLocaleCookie()`. `components/language-toggle.tsx` emits the event immediately after writing the cookie and still calls `router.refresh()` for server components. Both hooks subscribe to the event and re-read the cookie, so client copy and locale-dependent behavior update in the same render pass. The toggle also listens, keeping sibling toggles in sync. No full page reload is used.
+
+Re-run checks:
+
+| Check | Result |
+| --- | --- |
+| `pnpm --filter @deepinterview/web typecheck` | pass |
+| `pnpm --filter @deepinterview/web test` | pass (6 files, 18 tests; new `test/locale-client.test.ts` covers cookie parsing + event payload) |
+| `pnpm build --filter '@deepinterview/web...'` | pass (3/3 tasks; 69.6s) |
+| No image rebuild | as requested |
+
+Remaining manual QA: on `/setup` and `/prep`, click VI → client strings switch immediately while `<html lang>` becomes `vi` after the server refresh; click EN → both return; confirm no reload, no hydration warning. Then re-check 390px nav/open-source light+dark. No blockers.
