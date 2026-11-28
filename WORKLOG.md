@@ -825,3 +825,12 @@ Re-run checks:
 | No image rebuild | as requested |
 
 Remaining manual QA: on `/setup` and `/prep`, click VI → client strings switch immediately while `<html lang>` becomes `vi` after the server refresh; click EN → both return; confirm no reload, no hydration warning. Then re-check 390px nav/open-source light+dark. No blockers.
+
+### Final content cleanup (2026-11-29)
+
+- **Cleanup commit:** `477972dd637001d37088f91b23e12f7e797b985c` (`fix(docs): remove remaining Discussions references`).
+- Removed the two capitalized residues in `.github/ISSUE_TEMPLATE/feature_request.yml`: the search prompt now says “existing issues”, and the checklist says “I searched existing issues and this is not a duplicate.”
+- The case-insensitive audit also caught `SECURITY.md` (“public GitHub issues, Discussions, or pull requests”); it now reads “public GitHub issues or pull requests”.
+- Removed generated QA artifacts from the worktree: untracked `apps/web/AGENTS.md` deleted; `apps/web/next-env.d.ts` restored to HEAD (its only diff was Next dev-generated `.next/dev/types` imports).
+- **Audit:** `rg -ni 'discussions'` (excluding lockfiles, CHANGELOG, WORKLOG) → zero hits.
+- **Check:** `pnpm --filter @deepinterview/web typecheck` → pass. No image rebuild.
