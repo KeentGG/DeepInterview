@@ -12,6 +12,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Dependency/secret gate. Trivy is pinned to the same version used for the
+  # local verification; only vuln+secret findings fail the job so the accepted
+  # DS-0002 agent-Dockerfile root-user misconfig stays out of this gate.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy HIGH/CRITICAL vulnerability and secret scan
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo:ro" \
+            aquasec/trivy:0.76.2 fs \
+            --severity HIGH,CRITICAL \
+            --scanners vuln,secret \
+            --skip-dirs .git --skip-dirs node_modules \
+            --skip-dirs .venv --skip-dirs .next \
+            --no-progress \
+            --exit-code 1 \
+            /repo
+
   # Secret scan — fail on committed keys/tokens before building anything.
   gitleaks:
     runs-on: ubuntu-latest
@@ -25,8 +45,18 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      # uv must not fall back to the runner's default Python (3.14): onnxruntime
+      # 1.20.1 has no cp314 wheel. setup-python installs 3.11; UV_PYTHON keeps
+      # every agent/lightrag uv command on it.
+      UV_PYTHON: "3.11"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
 
       - name: Install pnpm
         # Version comes from package.json `packageManager` (pnpm@11.5.2).
@@ -41,7 +71,7 @@ jobs:
           cache: pnpm
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
 
@@ -120,6 +150,8 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: false
+          load: true
+          tags: openinterview-web:ci
           build-args: |
             NEXT_PUBLIC_APP_URL=http://localhost:3000
             NEXT_PUBLIC_SITE_URL=http://localhost:3000
@@ -128,3 +160,27 @@ jobs:
             NEXT_PUBLIC_SENTRY_DSN=
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
+
+      - name: Smoke-test web image
+        run: |
+          set -euo pipefail
+          docker rm -f web-smoke >/dev/null 2>&1 || true
+          trap 'docker rm -f web-smoke >/dev/null 2>&1 || true' EXIT
+          docker run -d --name web-smoke -p 3000:3000 openinterview-web:ci
+          for path in /api/health /; do
+            ok=0
+            for _ in $(seq 1 30); do
+              if curl -fsS "http://127.0.0.1:3000${path}" >/dev/null; then
+                ok=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "Smoke check failed for ${path}" >&2
+              docker logs web-smoke >&2 || true
+              exit 1
+            fi
+            echo "Smoke check passed for ${path}"
+          done
+          docker logs web-smoke | tail -20
