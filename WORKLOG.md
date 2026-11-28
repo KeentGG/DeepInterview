@@ -470,7 +470,10 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
     agent image follow-up
   - `752eb5002f7bc228d54fe2f530a8da69d2e015c1` build(agent): run the api and
     worker images as non-root appuser
-  - this evidence section is a separate docs commit (see `git log -- WORKLOG.md`)
+  - `4f2367928271b5e229cb9a7b61279eb860f95e6e` ci: gate HIGH/CRITICAL
+    Dockerfile misconfigs
+  - the evidence section and this commit list are docs-only commits (see
+    `git log -- WORKLOG.md` for the docs tip)
 - Changed files: `apps/agent/Dockerfile`, `.github/workflows/ci.yml`,
   `WORKLOG.md`.
 
