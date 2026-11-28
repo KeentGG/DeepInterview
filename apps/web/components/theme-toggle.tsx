@@ -18,7 +18,10 @@ const OPTIONS: {
   { value: "system", label: "System", Icon: Monitor },
 ];
 
-export function resolveTheme(pref: ThemePreference, systemDark: boolean): "light" | "dark" {
+export function resolveTheme(
+  pref: ThemePreference,
+  systemDark: boolean,
+): "light" | "dark" {
   if (pref === "system") return systemDark ? "dark" : "light";
   return pref;
 }
