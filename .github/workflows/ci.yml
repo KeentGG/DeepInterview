@@ -248,6 +248,22 @@ jobs:
           print("worker import + offline model load ok as uid", os.getuid())
           '
 
+      # The two real startup paths, against the same built image: the worker CLI
+      # must come up offline (no weight or dependency fetch), and the compose/
+      # CMD `uv run` path must import the worker with the network available.
+      - name: Verify agent worker CLI starts offline
+        run: |
+          set -euo pipefail
+          docker run --rm --network none -e HF_HUB_OFFLINE=1 \
+            openinterview-agent-worker:ci \
+            .venv/bin/python -m deepinterview_agent.worker --help
+
+      - name: Verify agent worker `uv run` import with network
+        run: |
+          set -euo pipefail
+          docker run --rm openinterview-agent-worker:ci \
+            uv run python -c "import deepinterview_agent.worker, livekit.plugins.silero"
+
       - name: Build lightrag image
         uses: docker/build-push-action@v6
         with:
