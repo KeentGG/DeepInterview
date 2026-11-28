@@ -139,6 +139,7 @@ with two corrections: Next target is 16.4.6 (not PR's stale 16.3.8), pypdf floor
   - `fd77435` fix(lightrag): refresh uv.lock with pypdf 7.2.0
   - `0e4e017` build(web): copy ee manifest and build web image in CI
   - `ae66eb5` style(web): apply prettier to lint-failing files
+  - `903a306` ci: pin Python 3.11 and harden web/security gates
 - Changed files: `apps/web/package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`,
   `apps/web/next-env.d.ts`, `apps/agent/pyproject.toml`, `apps/agent/uv.lock`,
   `services/lightrag/pyproject.toml`, `services/lightrag/uv.lock`,
@@ -251,6 +252,47 @@ Accepted risk: `DS-0002` — `apps/agent/Dockerfile` runs as root. Deferred to a
 follow-up per the plan and PR #113 reviewer note; not fixed in this ship. No
 other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
 
+### CI fix round — PR #7 (2026-11-28)
+
+- PR: https://github.com/KeentGG/OpenInterview/pull/7
+- Failed run: https://github.com/KeentGG/OpenInterview/actions/runs/46155610896
+- Failed job: https://github.com/KeentGG/OpenInterview/actions/runs/46155610896/job/141011471911
+- Root cause: the `build` job had no Python pin. `uv sync` selected the runner's
+  `/usr/bin/python3` (CPython 3.14.4), and `onnxruntime==1.20.1` has no cp314
+  wheel:
+  `error: Distribution onnxruntime==1.20.1 ... doesn't have a source
+  distribution or wheel for the current platform`. `setup-uv@v5` installs uv but
+  does not choose the interpreter. `docker-build` and `gitleaks` passed.
+- Fixes:
+  - `build` job sets `UV_PYTHON: "3.11"`, runs `actions/setup-python@v7` with
+    `python-version: "3.11"` before any uv command, and uses
+    `astral-sh/setup-uv@v10.4.0`. Agent and lightrag uv steps can no longer
+    select 3.14.
+  - Corrected both pyproject comments: CI pins 3.11 via `setup-python`; the
+    runtime image remains `python:3.11-slim`.
+  - Web image build now uses `load: true` and a stable tag
+    (`openinterview-web:ci`), then boots it and polls `/api/health` and `/` for
+    up to 60s, dumping `docker logs` on failure.
+  - Added a `security` job with pinned `aquasec/trivy:0.76.2`:
+    `fs --severity HIGH,CRITICAL --scanners vuln,secret --exit-code 1`.
+    Misconfig scanning is intentionally excluded, so accepted `DS-0002` does
+    not fail this gate.
+
+Local rechecks after the fix (all in this worktree):
+
+| Check | Result |
+| --- | --- |
+| Workflow YAML parse | pass (jobs: security, gitleaks, build, docker-build) |
+| `rhysd/actionlint:latest -color` | pass (exit 0) |
+| `UV_PYTHON=3.11 uv sync --frozen` (agent) | `.venv` uses Python 3.11.15 |
+| `UV_PYTHON=3.11 uv run pytest -q` (agent) | 212 passed, 1 skipped |
+| `UV_PYTHON=3.11 uv sync --frozen` + pytest (lightrag) | Python 3.11.15; 6 passed |
+| `UV_PYTHON=3.11 uv lock --check` (both) | pass |
+| CI Trivy command (`vuln,secret`, `--exit-code 1`) | exit 0; 0 vulns/secrets on all three lockfiles |
+| `docker buildx build --load -t openinterview-web:ci ...` | success |
+| Web image boot smoke (`/api/health`, `/`) | pass; logs show Next ready (local port 3001 because host 3000 was occupied) |
+| `pnpm lint` | pass |
+
 ### Remaining risks
 
 - `DS-0002` agent image root user (accepted, above).
@@ -260,8 +302,9 @@ other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
   `NotImplementedError`s, so no end-to-end RAG query is claimed. Its lock closure
   is Trivy-clean and the default NaiveRAG path passes tests. The `mineru[core]`
   extra warning predates this refresh and remains a known opt-in risk.
-- CI/Actions were not run because this implementation was not pushed (per the
-  brief); the new web-image step is locally verified by the Docker build.
+- CI/Actions: the first PR #7 run failed because uv selected Python 3.14 (see
+  the CI fix round above); the workflow is fixed and the branch is pushed. The
+  replacement Actions run is the source of truth for the remaining CI check.
 
 ## Status
 
@@ -269,5 +312,7 @@ other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
   OSV/npm/PyPI same-day data (see Decisions). Awaiting DeepSeek Flash implementation.
 - Implementation complete 2026-11-28 (DeepSeek Flash). Focused checks green,
   including `pnpm lint` after formatting `ae66eb5`; Trivy fs 0 HIGH/CRITICAL
-  vulnerabilities, one accepted HIGH misconfig (DS-0002). Awaiting independent
-  security review and CI.
+  vulnerabilities, one accepted HIGH misconfig (DS-0002).
+- CI fix round complete 2026-11-28 (DeepSeek Flash): pinned Python 3.11/uv,
+  durable web-image boot smoke, and a Trivy vuln+secret gate. Awaiting the
+  replacement Actions run and independent security review.
