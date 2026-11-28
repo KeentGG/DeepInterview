@@ -257,6 +257,8 @@ other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
 - PR: https://github.com/KeentGG/OpenInterview/pull/7
 - Failed run: https://github.com/KeentGG/OpenInterview/actions/runs/46155610896
 - Failed job: https://github.com/KeentGG/OpenInterview/actions/runs/46155610896/job/141011471911
+- Replacement run: https://github.com/KeentGG/OpenInterview/actions/runs/46156714212
+  — all jobs green (`build`, `docker-build`, `gitleaks`, `security`).
 - Root cause: the `build` job had no Python pin. `uv sync` selected the runner's
   `/usr/bin/python3` (CPython 3.14.4), and `onnxruntime==1.20.1` has no cp314
   wheel:
@@ -303,8 +305,9 @@ Local rechecks after the fix (all in this worktree):
   is Trivy-clean and the default NaiveRAG path passes tests. The `mineru[core]`
   extra warning predates this refresh and remains a known opt-in risk.
 - CI/Actions: the first PR #7 run failed because uv selected Python 3.14 (see
-  the CI fix round above); the workflow is fixed and the branch is pushed. The
-  replacement Actions run is the source of truth for the remaining CI check.
+  the CI fix round above). The replacement run
+  https://github.com/KeentGG/OpenInterview/actions/runs/46156714212 passes all
+  jobs: `build`, `docker-build`, `gitleaks`, and `security`.
 
 ## Status
 
@@ -314,5 +317,6 @@ Local rechecks after the fix (all in this worktree):
   including `pnpm lint` after formatting `ae66eb5`; Trivy fs 0 HIGH/CRITICAL
   vulnerabilities, one accepted HIGH misconfig (DS-0002).
 - CI fix round complete 2026-11-28 (DeepSeek Flash): pinned Python 3.11/uv,
-  durable web-image boot smoke, and a Trivy vuln+secret gate. Awaiting the
-  replacement Actions run and independent security review.
+  durable web-image boot smoke, and a Trivy vuln+secret gate. Replacement run
+  https://github.com/KeentGG/OpenInterview/actions/runs/46156714212 is green.
+  Awaiting independent security review.
