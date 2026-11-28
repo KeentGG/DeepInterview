@@ -472,8 +472,8 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
     worker images as non-root appuser
   - `4f2367928271b5e229cb9a7b61279eb860f95e6e` ci: gate HIGH/CRITICAL
     Dockerfile misconfigs
-  - the evidence section and this commit list are docs-only commits (see
-    `git log -- WORKLOG.md` for the docs tip)
+  - `git log 25b998a8..HEAD` lists every commit, including the docs-only
+    evidence updates and the runner-disk CI step
 - Changed files: `apps/agent/Dockerfile`, `.github/workflows/ci.yml`,
   `WORKLOG.md`.
 
@@ -495,8 +495,10 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
   target as `openinterview-agent-worker:ci` with its own gha cache scope; three
   new steps assert `id -u` == 10001 on both loaded images, boot the API and
   poll `/health` (failing on any `Permission denied` log line), and import
-  `deepinterview_agent.worker` as appuser. The lightrag and web steps are
-  unchanged.
+  `deepinterview_agent.worker` as appuser. A `Free runner disk space` step
+  removes unused preinstalled toolchains first, because four images (one of
+  them the multi-GB worker) must fit while buildkit holds their layers. The
+  lightrag and web steps are unchanged.
 - `.github/workflows/ci.yml` `security`: the Trivy gate now scans
   `vuln,secret,misconfig` at HIGH/CRITICAL. With `DS-0002` fixed and the whole
   repo verified at 0 findings under that exact command, a future root-user
@@ -546,9 +548,12 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
   supplies healthchecks for both agent services. The closing gate is
   HIGH/CRITICAL only.
 - The worker image is large (2.04GB compressed view; 3.2GB build layer). Local
-  disk pressure caused the first export failure; CI runners have enough space,
-  but the new worker build roughly doubles `docker-build` minutes (mitigated by
-  its own gha cache scope).
+  disk pressure caused the first export failure; the docker-build job now frees
+  unused runner toolchains before building, but the workflow has NOT been
+  observed running for this branch (no PR was opened, and `push` only triggers
+  on `main`). Treat the first PR run as the CI verification, and expect the
+  worker build to roughly double the job's minutes (its own gha cache scope
+  keeps that down after the first run).
 - Not run here: bringing up the full compose stack (lightrag + local models)
   and any LiveKit `start` with real keys — both are outside this item and need
   external services; the module import plus the offline weight check cover the
