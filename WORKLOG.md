@@ -494,6 +494,11 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
   poll `/health` (failing on any `Permission denied` log line), and import
   `deepinterview_agent.worker` as appuser. The lightrag and web steps are
   unchanged.
+- `.github/workflows/ci.yml` `security`: the Trivy gate now scans
+  `vuln,secret,misconfig` at HIGH/CRITICAL. With `DS-0002` fixed and the whole
+  repo verified at 0 findings under that exact command, a future root-user
+  regression fails CI directly; the stale "accepted DS-0002 stays out of this
+  gate" comment is corrected.
 
 ### Focused checks (all run in this worktree)
 
@@ -513,12 +518,19 @@ Baseline: main `25b998a8dc1d7efbe1d2e5b9f36cbc7a7909c31d`.
 | Offline re-bake as appuser: `docker run --rm --network none -e HF_HUB_OFFLINE=1 ... .venv/bin/python -c "…Plugin.download_files()…"` | succeeds from the baked cache as uid 10001 — no runtime download |
 | `docker compose config -q` and `docker compose --profile local --profile live config -q` | both pass |
 | Trivy `fs --severity HIGH,CRITICAL --scanners vuln,secret,misconfig` (`aquasec/trivy:0.76.2`, report `2026-11-28T15:26:38Z`) | exit 0; 0 findings on all six targets; `apps/agent/Dockerfile` misconfigs = 0, so `DS-0002` is gone |
+| Exact CI `security` gate command (`--scanners vuln,secret,misconfig --exit-code 1`, `--no-progress`, same skip dirs) | exit 0 |
 | Trivy misconfig, all severities (agent Dockerfile only) | only `DS-0026 LOW` (No HEALTHCHECK; compose defines the healthcheck) remains |
 | `cd apps/agent && UV_PYTHON=3.11 uv sync --frozen && uv run pytest -q` | 212 passed, 1 skipped (baseline unchanged) |
 | Workflow YAML parse + `rhysd/actionlint:latest` | jobs `security`, `gitleaks`, `build`, `docker-build`; actionlint exit 0 |
 
 ### Deviations, observations and remaining risks
 
+- Deviated from the plan's "the `security` job is unaffected": its Trivy gate
+  now includes the `misconfig` scanner. The plan excluded it only because
+  `DS-0002` was an accepted finding; with the agent image fixed and the exact
+  gate command verified at exit 0, including it makes the fix durable in CI and
+  removes a now-false comment. No other `security`/`gitleaks`/`build` step
+  changed.
 - `uv run` at runtime performs an implicit `uv sync` and installs dev
   dependencies from PyPI on first container start (observed: ruff/pygments
   downloaded in the API and worker smoke logs). This predates this item — the

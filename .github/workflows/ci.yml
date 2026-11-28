@@ -12,20 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Dependency/secret gate. Trivy is pinned to the same version used for the
-  # local verification; only vuln+secret findings fail the job so the accepted
-  # DS-0002 agent-Dockerfile root-user misconfig stays out of this gate.
+  # Dependency/secret/misconfig gate. Trivy is pinned to the same version used
+  # for the local verification; HIGH/CRITICAL findings fail the job. Dockerfile
+  # misconfigs are included now that DS-0002 (agent image root user) is fixed,
+  # so a regression is caught here as well as by the docker-build UID checks.
   security:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Trivy HIGH/CRITICAL vulnerability and secret scan
+      - name: Trivy HIGH/CRITICAL vulnerability, secret and misconfiguration scan
         run: |
           docker run --rm \
             -v "$PWD:/repo:ro" \
             aquasec/trivy:0.76.2 fs \
             --severity HIGH,CRITICAL \
-            --scanners vuln,secret \
+            --scanners vuln,secret,misconfig \
             --skip-dirs .git --skip-dirs node_modules \
             --skip-dirs .venv --skip-dirs .next \
             --no-progress \
