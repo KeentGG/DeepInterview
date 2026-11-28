@@ -12,9 +12,9 @@
 #              python -m deepinterview_agent.worker
 #            docker-compose.yml runs the worker via the `live` profile.
 #
-# Both runtime stages (`api`, `worker`) switch to the non-root `appuser`
-# (uid 10001); the installer stages stay root so `uv sync` and the model bake
-# need no privilege rework.
+# Both runtime stages (`api`, `worker`) run as the non-root `appuser`
+# (uid 10001). `base` creates the user and switches to it before installing;
+# the COPYs are chowned so no recursive chown layer is needed.
 #
 # BUILD CONTEXT = repo root (matches docker-compose.yml `context: .`):
 #     docker build -f apps/agent/Dockerfile -t deepinterview-agent .
@@ -32,20 +32,23 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# Runtime user. Created in `base` — before the worker model bake below — so the
-# silero/turn-detector weights and the uv cache land under this user's home and
-# are readable/writable once the final stages switch to it. The installer stages
-# (base, worker-deps) stay root; only `api` and `worker` drop privileges. UID
-# 10001 matches services/lightrag/Dockerfile.
-RUN useradd --create-home --uid 10001 appuser
+# Runtime user. Created here, before any install or the worker model bake, so
+# every later stage inherits `USER appuser`: `uv sync` writes .venv into the
+# image, and the uv/HF caches live in this user's home. Only `/app` needs an
+# early chown (it is empty at this point) — the COPYs below use `--chown`, so
+# the final stages need no multi-GB recursive chown layer. UID 10001 matches
+# services/lightrag/Dockerfile.
+RUN useradd --create-home --uid 10001 appuser \
+ && chown appuser:appuser /app
 ENV HOME=/home/appuser \
     HF_HOME=/home/appuser/.cache/huggingface \
     UV_CACHE_DIR=/home/appuser/.cache/uv
+USER appuser
 
 # Dependency layers FIRST (lockfiles only, --no-install-project), source LAST:
 # deps and the baked ML models stay cached across code edits — previously any
 # one-line src change re-downloaded the turn-detector weights (minutes).
-COPY apps/agent/pyproject.toml apps/agent/uv.lock ./
+COPY --chown=appuser:appuser apps/agent/pyproject.toml apps/agent/uv.lock ./
 
 # Base deps + the lightweight provider SDKs (gemini/openai/supabase/tavily).
 # Without them, setting e.g. SUPABASE_URL or LLM_PROVIDER=gemini in .env makes
@@ -70,14 +73,12 @@ from livekit.agents.plugin import Plugin; \
 
 # ---- api: deps + source (compose `agent-api` builds target: api) ------------
 FROM base AS api
-COPY apps/agent/src ./src
+COPY --chown=appuser:appuser apps/agent/src ./src
 RUN uv sync --frozen --no-dev --extra gemini --extra openai --extra supabase --extra tavily \
  || uv sync --no-dev --extra gemini --extra openai --extra supabase --extra tavily
 
-# Hand the project (incl. .venv), the trace dir and the caches to the runtime
-# user, then drop root. `uv run` in CMD needs to write only inside these paths.
-RUN chown -R appuser:appuser /app /home/appuser
-USER appuser
+# `USER appuser` is inherited from `base`; the project, .venv and caches were
+# written as that user, so no chown is needed here.
 
 EXPOSE 8000
 
@@ -89,12 +90,10 @@ CMD ["uv", "run", "uvicorn", "deepinterview_agent.app:app", "--host", "0.0.0.0",
 # imports at load time, so running the worker off the api image would
 # ModuleNotFoundError.
 FROM worker-deps AS worker
-COPY apps/agent/src ./src
+COPY --chown=appuser:appuser apps/agent/src ./src
 RUN uv sync --frozen --no-dev --extra livekit --extra gemini --extra openai --extra supabase --extra tavily \
  || uv sync --no-dev --extra livekit --extra gemini --extra openai --extra supabase --extra tavily
-# Same privilege drop as `api`: /app also holds the baked model caches' parent
-# tree, so the worker can append traces and read weights without a re-download.
-RUN chown -R appuser:appuser /app /home/appuser
-USER appuser
+# `USER appuser` is inherited from `base`. The baked weights and the uv cache,
+# created as appuser during the model bake, stay readable without a chown layer.
 # `start` connects to LiveKit and waits for jobs (needs LIVEKIT_*/STT/TTS keys).
 CMD ["uv", "run", "python", "-m", "deepinterview_agent.worker", "start"]
