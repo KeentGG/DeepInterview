@@ -138,10 +138,13 @@ with two corrections: Next target is 16.4.6 (not PR's stale 16.3.8), pypdf floor
   - `673b8d3` fix(agent): refresh uv.lock security floors
   - `fd77435` fix(lightrag): refresh uv.lock with pypdf 7.2.0
   - `0e4e017` build(web): copy ee manifest and build web image in CI
+  - `ae66eb5` style(web): apply prettier to lint-failing files
 - Changed files: `apps/web/package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`,
   `apps/web/next-env.d.ts`, `apps/agent/pyproject.toml`, `apps/agent/uv.lock`,
   `services/lightrag/pyproject.toml`, `services/lightrag/uv.lock`,
-  `apps/web/Dockerfile`, `.github/workflows/ci.yml`, `WORKLOG.md`.
+  `apps/web/Dockerfile`, `.github/workflows/ci.yml`,
+  `apps/web/app/prep/page.tsx`, `apps/web/components/prep/mastery-graph.tsx`,
+  `apps/web/components/theme-toggle.tsx`, `WORKLOG.md`.
 
 ### Resolved versions
 
@@ -205,7 +208,7 @@ with two corrections: Next target is 16.4.6 (not PR's stale 16.3.8), pypdf floor
 | agent image build (`--target api`) | success (`openinterview-agent:verify2`) |
 | lightrag image build | success (`openinterview-lightrag:verify2`) |
 | web image build (`apps/web/Dockerfile`) | success (`openinterview-web:verify`) |
-| `pnpm lint` | Fails on 3 pre-existing unformatted files: `apps/web/app/prep/page.tsx`, `apps/web/components/prep/mastery-graph.tsx`, `apps/web/components/theme-toggle.tsx`. Confirmed at HEAD via `git show HEAD:<file> \| pnpm exec prettier --check --stdin-filepath <file>`; not touched by this change. |
+| `pnpm lint` | Pass — prettier all files clean; agent ruff passed. The three previously unformatted web files were formatted in `ae66eb5` (formatting only). |
 | `uv sync --extra rag --python 3.11` (lightrag) | Installed the optional stack, incl. torch 2.13.0 |
 | Rag import smoke | `starlette 1.10.0`, `fastapi 0.165.0`, `cryptography 50.0.2`, `urllib3 2.8.0`, `pypdf 7.2.0`, `lightrag-hku 1.5.8`, `transformers 5.24.1`, `sentence-transformers 6.3.0`, `mineru 4.2.3`, `gradio 6.32.0`, `raganything 1.3.1`; `import starlette, fastapi, cryptography, pypdf, transformers, sentence_transformers, mineru, gradio, raganything, lightrag` -> imports OK |
 | `RAG_BACKEND=lightrag` construct | `LightRAGBackend` constructed OK (skeleton; ingest/query remain NotImplemented) |
@@ -264,6 +267,7 @@ other HIGH/CRITICAL vulnerability, secret, or misconfiguration remains.
 
 - Planning complete 2026-11-28 (Muse 1.3 ship lead). Fork pins verified against
   OSV/npm/PyPI same-day data (see Decisions). Awaiting DeepSeek Flash implementation.
-- Implementation complete 2026-11-28 (DeepSeek Flash). Focused checks green;
-  Trivy fs 0 HIGH/CRITICAL vulnerabilities, one accepted HIGH misconfig
-  (DS-0002). Awaiting independent security review and CI.
+- Implementation complete 2026-11-28 (DeepSeek Flash). Focused checks green,
+  including `pnpm lint` after formatting `ae66eb5`; Trivy fs 0 HIGH/CRITICAL
+  vulnerabilities, one accepted HIGH misconfig (DS-0002). Awaiting independent
+  security review and CI.
