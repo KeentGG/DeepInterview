@@ -2,9 +2,11 @@
 
 <img src="assets/logo.svg" width="132" alt="DeepInterview" />
 
-# DeepInterview: AI phỏng vấn thử bằng giọng nói, đa ngôn ngữ
+# OpenInterview: AI phỏng vấn thử bằng giọng nói, đa ngôn ngữ
 
 ### Luyện phỏng vấn bằng cách nói thành tiếng. Rồi vượt qua buổi thật. · Multi-agent · Mã nguồn mở
+
+> **Fork do cộng đồng:** OpenInterview là bản fork do cộng đồng duy trì từ [DeepInterview](https://github.com/ngoanpv/DeepInterview), dự án gốc hiện không còn hoạt động. Việc phát triển và pull request được tiếp tục tại đây.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-4338CA.svg)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/ngoanpv/DeepInterview/ci.yml?branch=main&label=build)](https://github.com/ngoanpv/DeepInterview/actions)
@@ -19,7 +21,7 @@
 
 [English](README.md) · **Tiếng Việt**
 
-[Bắt đầu nhanh](#bắt-đầu-nhanh) · [Vì sao](#vì-sao-là-deepinterview) · [Tính năng](#tính-năng) · [Kiến trúc](#kiến-trúc) · [Cộng đồng](#cộng-đồng) · [Đóng góp](#đóng-góp)
+[Bắt đầu nhanh](#bắt-đầu-nhanh) · [Vì sao](#vì-sao-là-openinterview) · [Tính năng](#tính-năng) · [Kiến trúc](#kiến-trúc) · [Cộng đồng](#cộng-đồng) · [Đóng góp](#đóng-góp)
 
 **Rất mong bạn đóng góp** — [pack ngân hàng câu hỏi](https://github.com/ngoanpv/DeepInterview/issues/38) · [language pack & provider adapter](docs/GOOD_FIRST_ISSUES.md) · pack bạn viết sẽ được hỏi trong buổi phỏng vấn thật, và phát triển thì không cần API key nào cả.
 
@@ -32,7 +34,7 @@
 
 > **Tải lên CV và mô tả công việc. Nói chuyện với một AI phỏng vấn. Nhận điểm — và được hướng dẫn đúng chỗ bạn còn thiếu.** Ưu tiên giọng nói, ưu tiên tiếng Anh, và đa ngôn ngữ ngay từ thiết kế.
 
-DeepInterview khép kín vòng lặp **chuẩn bị ⇄ phỏng vấn ⇄ phản hồi**: phần suy luận nặng chạy *trước* buổi gọi (đọc CV + JD, nghiên cứu công ty, dựng kế hoạch câu hỏi thích ứng), một vòng lặp giọng nói real-time gọn nhẹ chạy buổi phỏng vấn, rồi các model mạnh chấm điểm và đưa bạn vào một study coach cho đúng những phần còn yếu.
+OpenInterview khép kín vòng lặp **chuẩn bị ⇄ phỏng vấn ⇄ phản hồi**: phần suy luận nặng chạy *trước* buổi gọi (đọc CV + JD, nghiên cứu công ty, dựng kế hoạch câu hỏi thích ứng), một vòng lặp giọng nói real-time gọn nhẹ chạy buổi phỏng vấn, rồi các model mạnh chấm điểm và đưa bạn vào một study coach cho đúng những phần còn yếu.
 
 > **Trạng thái thật:** đây là một **bản mở giai đoạn sớm**. Phần contract, pipeline prep/live/post, các màn hình web và CLI đều đã có và **chạy offline với mock adapter** (không cần API key, test xanh). Giọng nói real-time, tìm kiếm web và avatar video thì cần key của provider. `docker compose up` dựng nguyên base stack (web + agent API + knowledge sidecar, healthy mà không cần key nào); worker giọng nói chạy bằng `docker compose --profile live up` sau khi có key LiveKit. Xuyên suốt README này, cái gì xong tới đâu chúng tôi ghi đúng tới đó.
 
@@ -49,8 +51,8 @@ DeepInterview khép kín vòng lặp **chuẩn bị ⇄ phỏng vấn ⇄ phản
 Đây chính là thứ CI đang test mỗi ngày. Nó build contract, chạy test suite, và chạy pipeline prep/live/post trên **mock adapter** — không cần key của provider nào.
 
 ```bash
-git clone https://github.com/ngoanpv/DeepInterview.git
-cd DeepInterview
+git clone https://github.com/KeentGG/OpenInterview.git
+cd OpenInterview
 
 pnpm install          # cài workspace JS/TS
 pnpm build            # build packages/shared (contracts) + cli + web
@@ -76,7 +78,7 @@ docker compose up --build  # web (:3000) + agent API (:8000) + lightrag (:9621)
 
 ### 3. Deploy một cú nhấp
 
-[![Deploy web to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ngoanpv/DeepInterview)
+[![Deploy web to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/KeentGG/OpenInterview)
 
 Nút này deploy **`apps/web`** lên Vercel. **Agent** Python thì không chạy serverless được — hãy chạy nó bằng **Docker** (image `agent-api` ở trên) hoặc trên **[LiveKit Cloud Agents](https://docs.livekit.io/agents/)** cho worker giọng nói, rồi trỏ web app tới nó qua `AGENT_API_URL`. Xem [`docs/DEPLOY.md`](docs/DEPLOY.md) (WP-12, đang làm).
 
@@ -90,9 +92,9 @@ Xem [CONTRIBUTING.md](CONTRIBUTING.md) để biết cách setup dev đầy đủ
 
 </details>
 
-## Vì sao là DeepInterview
+## Vì sao là OpenInterview
 
-Luyện trong đầu (hoặc luyện bằng chat chữ) không giống cách một buổi phỏng vấn diễn ra. DeepInterview **ưu tiên giọng nói** — bạn trả lời thành tiếng, theo thời gian thực, đúng như thật — và được xây để bạn **sở hữu, chứ không phải đi thuê**:
+Luyện trong đầu (hoặc luyện bằng chat chữ) không giống cách một buổi phỏng vấn diễn ra. OpenInterview **ưu tiên giọng nói** — bạn trả lời thành tiếng, theo thời gian thực, đúng như thật — và được xây để bạn **sở hữu, chứ không phải đi thuê**:
 
 - **Một cuộc hội thoại thật, không phải cái form** — vòng lặp **STT → LLM → TTS** nối tầng trên LiveKit, có barge-in (ngắt lời), nhận biết kết thúc lượt nói theo ngữ nghĩa, và câu hỏi đào sâu thích ứng, để người phỏng vấn phản ứng với *điều bạn thực sự vừa nói*.
 - **Chuẩn bị như một người phỏng vấn thật** — trước buổi gọi nó đọc CV + JD, nghiên cứu công ty, và tính sẵn một kế hoạch câu hỏi cá nhân hoá kèm rubric; vòng lặp live nhờ vậy mà nhanh, vì phần suy nghĩ đã xong từ trước.
@@ -188,7 +190,7 @@ flowchart LR
 
 Sơ đồ luồng request đầy đủ và thiết kế multi-agent nằm trong [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Dùng DeepInterview
+## Dùng OpenInterview
 
 | Phiên bản | Bạn nhận được gì | Auth & billing | Trạng thái |
 |---|---|---|---|
@@ -247,6 +249,6 @@ Nếu DeepInterview giúp ích cho công việc của bạn, hãy trích dẫn n
 
 **Giấy phép:** [Apache-2.0](LICENSE) · Xây dựng công khai
 
-[về đầu trang](#deepinterview-ai-phỏng-vấn-thử-bằng-giọng-nói-đa-ngôn-ngữ)
+[về đầu trang](#openinterview-ai-phỏng-vấn-thử-bằng-giọng-nói-đa-ngôn-ngữ)
 
 </div>

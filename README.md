@@ -2,9 +2,11 @@
 
 <img src="assets/logo.svg" width="132" alt="DeepInterview" />
 
-# DeepInterview: Voice-First, Multilingual AI Mock Interviewer
+# OpenInterview: Voice-First, Multilingual AI Mock Interviewer
 
 ### Practice the interview out loud. Then pass the real one. · Multi-agent · Open source
+
+> **Community fork:** OpenInterview is a community-maintained fork of [DeepInterview](https://github.com/ngoanpv/DeepInterview), whose upstream repository is inactive. Development and pull requests continue here.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-4338CA.svg)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/ngoanpv/DeepInterview/ci.yml?branch=main&label=build)](https://github.com/ngoanpv/DeepInterview/actions)
@@ -19,7 +21,7 @@
 
 **English** · [Tiếng Việt](README.vi.md)
 
-[Quickstart](#quickstart) · [Why](#why-deepinterview) · [Features](#features) · [Architecture](#architecture) · [Community](#community) · [Contributing](#contributing)
+[Quickstart](#quickstart) · [Why](#why-openinterview) · [Features](#features) · [Architecture](#architecture) · [Community](#community) · [Contributing](#contributing)
 
 **Contributions wanted** — [interview question-bank packs](https://github.com/ngoanpv/DeepInterview/issues/38) · [language packs & provider adapters](docs/GOOD_FIRST_ISSUES.md) · your packs get asked in real interviews, and no API keys are needed to develop.
 
@@ -32,7 +34,7 @@
 
 > **Upload your CV and a job description. Talk to an AI interviewer. Get scored — and coached on exactly what you missed.** Voice-first, English-first, and multilingual by design.
 
-DeepInterview closes the **prep ⇄ interview ⇄ feedback** loop: heavy reasoning runs *before* the call (read your CV + the JD, research the company, build an adaptive question plan), a lean real-time voice loop runs the interview, then strong models score it and route you into a study coach for your weak areas.
+OpenInterview closes the **prep ⇄ interview ⇄ feedback** loop: heavy reasoning runs *before* the call (read your CV + the JD, research the company, build an adaptive question plan), a lean real-time voice loop runs the interview, then strong models score it and route you into a study coach for your weak areas.
 
 > **Honest status:** this is an **early open build**. The contracts, prep/live/post pipelines, web screens, and CLI are implemented and **run offline with mock adapters** (no API keys, tests green). Real-time voice, web research, and video avatars need provider keys. `docker compose up` brings up the full base stack (web + agent API + knowledge sidecar, healthy with zero keys); the live voice worker runs via `docker compose --profile live up` once LiveKit keys are set. We mark what's done honestly, per feature, throughout this README.
 
@@ -49,8 +51,8 @@ DeepInterview closes the **prep ⇄ interview ⇄ feedback** loop: heavy reasoni
 This is what's tested in CI today. It builds the contracts, runs the test suites, and exercises the prep/live/post pipelines against **mock adapters** — no provider keys required.
 
 ```bash
-git clone https://github.com/ngoanpv/DeepInterview.git
-cd DeepInterview
+git clone https://github.com/KeentGG/OpenInterview.git
+cd OpenInterview
 
 pnpm install          # install the JS/TS workspace
 pnpm build            # build packages/shared (contracts) + cli + web
@@ -76,7 +78,7 @@ docker compose up --build  # web (:3000) + agent API (:8000) + lightrag (:9621)
 
 ### 3. One-click deploy
 
-[![Deploy web to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ngoanpv/DeepInterview)
+[![Deploy web to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/KeentGG/OpenInterview)
 
 The button deploys **`apps/web`** to Vercel. The Python **agent** is not serverless — run it via **Docker** (the `agent-api` image above) or on **[LiveKit Cloud Agents](https://docs.livekit.io/agents/)** for the live voice worker, and point the web app at it with `AGENT_API_URL`. See [`docs/DEPLOY.md`](docs/DEPLOY.md) (WP-12, in progress).
 
@@ -90,9 +92,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full dev setup and the provider-a
 
 </details>
 
-## Why DeepInterview
+## Why OpenInterview
 
-Practicing in your head (or in a text chat) isn't how interviews work. DeepInterview is **voice-first** — you answer out loud, in real time, like the real thing — and built to be **owned, not rented**:
+Practicing in your head (or in a text chat) isn't how interviews work. OpenInterview is **voice-first** — you answer out loud, in real time, like the real thing — and built to be **owned, not rented**:
 
 - **A real conversation, not a form** — a cascaded **STT → LLM → TTS** loop on LiveKit with barge-in, semantic end-of-turn detection, and adaptive follow-ups, so the interviewer reacts to *what you actually said*.
 - **Prepared like a real interviewer** — before the call it reads your CV + the JD, researches the company, and precomputes a personalized question plan with rubrics; the live loop stays fast because the thinking already happened.
@@ -188,7 +190,7 @@ flowchart LR
 
 Full request-flow diagrams and the multi-agent design live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Using DeepInterview
+## Using OpenInterview
 
 | Edition | What you get | Auth & billing | Status |
 |---|---|---|---|
@@ -248,6 +250,6 @@ If DeepInterview helps your work, please cite it. Full metadata is in [`CITATION
 
 **License:** [Apache-2.0](LICENSE) · Built in the open
 
-[back to top](#deepinterview-voice-first-multilingual-ai-mock-interviewer)
+[back to top](#openinterview-voice-first-multilingual-ai-mock-interviewer)
 
 </div>
