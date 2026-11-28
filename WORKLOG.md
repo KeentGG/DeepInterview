@@ -578,7 +578,8 @@ Evidence (final images, local host):
 Notes: `uv run` still works at runtime (CMD unchanged) because `/app`, the venv
 and the caches are appuser-owned from creation. The CI shell scripts were
 extracted from the workflow and executed verbatim with only the local image tag
-substituted; the workflow itself has not run for this branch (no PR opened).
+substituted; PR #8's CI run for the new head has not been observed locally —
+check it after the push.
 
 ### Deviations, observations and remaining risks
 
@@ -601,14 +602,13 @@ substituted; the workflow itself has not run for this branch (no PR opened).
   HIGH/CRITICAL only.
 - The worker image is 3.46GB on disk and its build takes ~1m40s locally after
   the chown-layer removal (api: 1.29GB / ~1m11s). The docker-build job frees
-  unused runner toolchains before building, but the workflow has NOT been
-  observed running for this branch (no PR was opened, and `push` only triggers
-  on `main`). Treat the first PR run as the CI verification.
+  unused runner toolchains before building; PR #8's CI result for this new head
+  has not been observed in the worktree — check the run after the push.
 - Not run here: bringing up the full compose stack (lightrag + local models)
   and any LiveKit `start` with real keys — both are outside this item and need
   external services; the module import plus the offline weight check cover the
   changed paths.
-- No PR opened and nothing pushed beyond `transition/nonroot-agent`, per the
-  implementer brief; an independent (non-implementer) re-run of the Trivy
-  misconfig gate and a review of the Dockerfile diff are still required before
-  merge.
+- This fix round is pushed to `fork/transition/nonroot-agent`, the head of
+  PR #8 (opened by the ship lead); the implementer did not merge it. An
+  independent (non-implementer) re-run of the Trivy misconfig gate and a review
+  of the final diff are still required before merge.
