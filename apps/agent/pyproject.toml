@@ -3,7 +3,9 @@ name = "deepinterview-agent"
 version = "0.3.0"
 description = "DeepInterview live voice interviewer + prep/post pipelines (WP-0 shell)."
 license = "Apache-2.0"
-requires-python = ">=3.11"
+# 3.11.5 is the floor for soupsieve 3+ (fixes CVE-2026-126190/1). CI pins
+# 3.11 via actions/setup-python; the runtime image is python:3.11-slim.
+requires-python = ">=3.11.5"
 dependencies = [
     "pydantic>=2.13",
     "fastapi>=0.140",

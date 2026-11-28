@@ -14,3 +14,7 @@ allowBuilds:
 # `Client` identities make getSignedUrl(S3Client) a type error (r2.ts).
 overrides:
   "@smithy/core": "3.34.1"
+  # Security floors (upstream PR #113): 0.34.5 has libvips/libheif/librsvg
+  # advisories; 1.2.1 has a DoS (GHSA-68fv-2mgg-jv7q), still pulled via postcss.
+  sharp: "^0.35.5"
+  source-map-js: "^1.2.2"

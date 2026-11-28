@@ -49,7 +49,10 @@ function MasteryNodeComponent({ data }: NodeProps<MasteryFlowNode>) {
         style={{ opacity: 0, width: 1, height: 1, border: "none" }}
         isConnectable={false}
       />
-      <p className="text-[13px] font-medium" style={{ color: "var(--color-ink)" }}>
+      <p
+        className="text-[13px] font-medium"
+        style={{ color: "var(--color-ink)" }}
+      >
         {data.label}
       </p>
       <p

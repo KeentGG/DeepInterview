@@ -25,6 +25,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/agent/package.json apps/agent/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY packages/ee/package.json packages/ee/package.json
 COPY cli/package.json cli/package.json
 RUN pnpm install --frozen-lockfile
 

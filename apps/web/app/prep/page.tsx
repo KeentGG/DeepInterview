@@ -94,8 +94,7 @@ export default async function PrepPage({
   // module's lesson opens under its card.
   const moduleId = typeof params.module === "string" ? params.module : null;
   const activeModule =
-    (studyModules ?? SAMPLE_STUDY_PLAN).find((m) => m.id === moduleId) ??
-    null;
+    (studyModules ?? SAMPLE_STUDY_PLAN).find((m) => m.id === moduleId) ?? null;
 
   return (
     <main className="mx-auto max-w-[1100px] px-6 py-12">
