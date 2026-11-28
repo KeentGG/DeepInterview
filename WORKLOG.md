@@ -16,7 +16,7 @@ This file is the single source of truth for transition work. Update it after eve
   - [x] Verify fork Actions run after push.
   - [x] **Follow-up:** run the agent API and worker containers as non-root (`DS-0002`).
 - [ ] **2. Brand and conversion**
-  - [ ] Replace remaining user-facing DeepInterview branding and upstream clone links.
+  - [x] Replace remaining user-facing DeepInterview branding and upstream clone links.
   - [ ] Enable and configure fork Issues.
 - [ ] **3. Retention instrumentation**
   - [ ] Measure completed interviews, report-to-coach clicks, repeat practice, cost, and local turn latency.
@@ -29,13 +29,13 @@ This file is the single source of truth for transition work. Update it after eve
 ## Currently doing
 
 - **Item:** 2 — Brand and conversion
-- **Branch:** Not created yet
-- **Worktree:** Not created yet
+- **Branch:** `transition/brand-conversion`
+- **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/brand-conversion`
 - **Baseline:** main `8a713cb28ec1dc93ece064858747ab4bb82c0709`
 - **Ship lead:** Muse 1.3
 - **Implementer:** DeepSeek Flash
-- **Status:** Queued
-- **Notes:** Replace remaining user-facing DeepInterview branding and upstream clone links; enable and configure fork Issues.
+- **Status:** Implemented — focused checks green; browser QA and fork Issues enablement pending.
+- **Notes:** User-facing branding and fork links are updated. Internal identifiers, persisted keys, and upstream attribution are unchanged; the hero mock uses a neutral session label (no unowned fork domain).
 
 ## Done
 
@@ -663,3 +663,116 @@ rebuild):
   https://github.com/KeentGG/OpenInterview/actions/runs/46162990617 is green,
   and independent correctness, security, and test reviews found no remaining
   issue. Ready to merge.
+
+## Plan — Item 2 Brand/conversion (planning pass, no product code touched)
+
+Goal: make the product unmistakably OpenInterview (fork `KeentGG/OpenInterview`) while keeping every runtime/persisted contract byte-identical. Planning pass only — no product code or repo settings changed here.
+
+### Inventory (verified 2026-11-29 in this worktree via `rg`)
+
+- User-facing brand strings (`DeepInterview` exact-case, excl. lockfiles): ~149 files contain case-insensitive `deepinterview`; user-visible subset is ~45 files: `apps/web/app/layout.tsx`, `apps/web/app/opengraph-image.tsx`, `apps/web/app/icon.svg`, `assets/logo.svg`, `apps/web/components/ui/brand-mark.tsx` (comment), `apps/web/components/landing/{nav,footer,hero,open-source,hero-mock}.tsx`, `apps/web/app/{setup,prep,report/[id],interview/coach,avatars}/page.tsx`, `apps/web/components/session/prep-summary.tsx`, `apps/web/lib/i18n/messages/{en,vi}.ts`, `cli/src/index.ts`, `cli/src/commands/init.ts`, `.env.example` header, `scripts/setup.sh`, `README.md`, `README.vi.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CITATION.cff`, `NOTICE`, `docs/{ARCHITECTURE,DEPLOY,LOCAL_MODELS,OPENROUTER_AND_CPU_ONLY,AVATARS,GOOD_FIRST_ISSUES}.md`, `skills/supabase/packaging/packages-ee READMEs`, `avatars.manifest.json`, `apps/agent` + `services/lightrag` pyproject descriptions, FastAPI title, worker/Dockerfile comments.
+- Upstream URLs (`ngoanpv/DeepInterview`): `apps/web/lib/site.ts` (`GITHUB_URL`), `apps/web/components/landing/open-source.tsx` (clone block), `README*.md` badges/clone/Vercel-button/discussions/issues/contributors/release links, `CONTRIBUTING.md` clone + discussions/issues links, `.github/ISSUE_TEMPLATE/{bug_report,feature_request}.yml` + `config.yml` contact links, `avatars.manifest.json` release base + `cli/src/lib/avatar-manifest.test.ts` fixtures, `docs/GOOD_FIRST_ISSUES.md` + `docs/AVATARS.md` issue links.
+- Sensitive compat surfaces (MUST NOT change): Python package `deepinterview_agent` + all imports, `@deepinterview/*` TS scopes + `transpilePackages`, CLI bin/command `deepinterview`, `pnpm deepinterview` script, LiveKit dispatch defaults `deepinterview-interviewer` / `deepinterview-coach` (web `env.ts` + agent `config.py` + `LIVEKIT_*` env examples + web tests), `localStorage` key `deepinterview.recentSessions`, SQLite default `~/.local/share/deepinterview/sessions.db`, trace dir `.deepinterview/traces` + tracer name, compose project `name: deepinterview`, DB/API schema field names, Supabase/RLS identifiers.
+
+### Decisions
+
+- Decided: user-visible wordmark becomes `OpenInterview` everywhere (nav, footer, hero copy, eyebrows, metadata/OG text, i18n `appName` + en/vi subtitles, avatar/setup/report/coach screens, CLI help/wizard intro, `.env.example` header comment, `setup.sh` echo, READMEs, CONTRIBUTING/SECURITY/docs copy, CITATION title/message, NOTICE header, FUNDING header comment, PR template comment). No `DeepInterview` remains in any rendered string, `<title>`, aria-label, alt, eyebrow, or email-adjacent copy except inside kept identifiers/paths below.
+- Decided: every upstream URL becomes fork `https://github.com/KeentGG/OpenInterview` (single source: `apps/web/lib/site.ts` `GITHUB_URL`; all other sites derive or hardcode the same fork URL). Clone block becomes `git clone https://github.com/KeentGG/OpenInterview.git` + `cd OpenInterview`. README badges (build/release/stars), release/contributors/discussions/issues links, Vercel button `repository-url`, issue-template search/contact links, `avatars.manifest.json` release base + test fixtures, docs issue links all point at the fork. No `ngoanpv` URL remains outside CHANGELOG history.
+- Decided: logo/icon treatment = rename, NOT redraw, in this ship. `assets/logo.svg` + `apps/web/app/icon.svg`: change `aria-label`, `<title>`, and comments to `OpenInterview`; keep the rounded-square + indigo-dot geometry byte-identical. `brand-mark.tsx` comment updated; OG image headline `DeepInterview` → `OpenInterview`. Rationale: the 22px glyph reads abstract; a redraw risks favicon/PWA churn. File an `OI glyph` follow-up; do not block merge on it.
+- Decided: `metadataBase` fallback `https://deepinterview.ai` → `http://localhost:3000` (matches `.env.example` `NEXT_PUBLIC_SITE_URL` default; no fork domain is owned yet). `hero-mock.tsx` session pill `deepinterview.ai/session/8f2a` → `OpenInterview · session/8f2a` (neutral mock label; no fork domain is used). `NEXT_PUBLIC_SITE_URL`/`NEXT_PUBLIC_APP_URL` keys unchanged.
+- Decided: internal names stay `deepinterview*` for compatibility: Python package/imports, `@deepinterview/*` scopes, CLI bin + `pnpm deepinterview` + `deepinterview init/traces/skills/avatars` invocations in docs/tests, LiveKit dispatch default VALUES (`deepinterview-interviewer`, `deepinterview-coach`), `localStorage` key, SQLite path default, trace dir + tracer name, compose project name, FastAPI `title="DeepInterview Agent API"` (internal docs only), Dockerfile comments referencing image internals. Only human-facing prose around them changes (e.g. CLI help header `deepinterview — OpenInterview CLI`; `.env.example` comments keep key names, reword prose).
+- Decided: `security@deepinterview.dev` is replaced (fork owns no such inbox): `SECURITY.md` + `config.yml` point to fork private vulnerability reporting (`https://github.com/KeentGG/OpenInterview/security/advisories/new`) + `SECURITY.md` as the policy link. Discord invite `https://discord.gg/fT7Ecbyq` (upstream community) is REMOVED from `config.yml`, not repointed (no fork server exists). `FUNDING.yml` stays all-commented (no sponsor accounts) with header reworded to OpenInterview.
+- Decided: version numbers (`0.3.0`) and `CHANGELOG.md` history are untouched (history stays truthful; rebrand ships as unreleased work, version bump is a separate release decision).
+- Decided: `README.md` + `README.vi.md` badges point at fork `KeentGG/OpenInterview` paths even though fork releases/tags do not exist yet (badges degrade to empty states; acceptable, no fake release is cut).
+- Decided: implementer MUST NOT touch `pnpm-lock.yaml` / `uv.lock` (pure rename; resolver re-runs forbidden). MUST NOT rename files/dirs (`deepinterview_agent/`, `.deepinterview/`, `deepinterview` paths in docs tree references stay valid via kept identifiers).
+- Decided: fork Issues enablement is NOT done by the implementer (needs repo admin): separate main-agent step below. Implementer only repoints issue-template URLs to fork issues paths.
+
+### Implementer scope (DeepSeek Flash) — exact files/strings
+
+1. `apps/web/lib/site.ts`: `https://github.com/ngoanpv/DeepInterview` → `https://github.com/KeentGG/OpenInterview`.
+2. `apps/web/app/layout.tsx`: title default/template, `description`, `applicationName`, OG + twitter titles/descriptions, `siteName`, `metadataBase` fallback → `OpenInterview` + `http://localhost:3000`.
+3. `apps/web/app/opengraph-image.tsx`: `alt` + headline `DeepInterview` → `OpenInterview`.
+4. `apps/web/app/icon.svg`, `assets/logo.svg`: `aria-label`, `<title>`, comments → `OpenInterview`; geometry untouched.
+5. `apps/web/components/ui/brand-mark.tsx`: comment `DeepInterview` → `OpenInterview`.
+6. Landing: `nav.tsx` wordmark; `footer.tsx` wordmark + tagline stays + `© 2026 OpenInterview · Apache 2.0`; `hero.tsx` paragraph; `open-source.tsx` clone block (`github.com/KeentGG/OpenInterview`, `cd OpenInterview`); `hero-mock.tsx` session pill.
+7. Screens: `setup/page.tsx`, `prep/page.tsx`, `report/[id]/page.tsx` (2x), `interview/coach/page.tsx` (`OpenInterview · Prep Coach`), `avatars/page.tsx` (metadata title/description + eyebrow), `components/session/prep-summary.tsx` eyebrow.
+8. i18n: `messages/en.ts` `appName` + landing `subtitle`; `messages/vi.ts` `appName` + matching subtitle (`OpenInterview đọc CV…`).
+9. `cli/src/index.ts` help header → `deepinterview — OpenInterview CLI`; `cli/src/commands/init.ts` `intro("OpenInterview setup")`; `scripts/setup.sh` echo; `.env.example` header comment (keys untouched).
+10. Docs/site: `README.md` + `README.vi.md` (hero alt, H1, badges→fork, clone `.../KeentGG/OpenInterview.git` + `cd OpenInterview`, Vercel button, Why/Using/Contributing sections, citation block URL), `CONTRIBUTING.md`, `SECURITY.md` (prose + reporting contact + supported-versions prose), `CITATION.cff`, `NOTICE`, `docs/*.md` + `skills/supabase/packaging/packages-ee READMEs` prose + `deepinterview` CLI invocation strings stay, `apps/agent` + `services/lightrag` pyproject `description`, FastAPI/worker/Dockerfile human comments only.
+11. Links: `.github/ISSUE_TEMPLATE/bug_report.yml` + `feature_request.yml` search-issues links → fork; `config.yml` discussions → fork, security → fork advisories + `SECURITY.md`, drop Discord entry; `avatars.manifest.json` release → fork; `cli/src/lib/avatar-manifest.test.ts` fixtures → fork; `docs/AVATARS.md` + `GOOD_FIRST_ISSUES.md` issue links → fork issues.
+12. Explicitly OUT: any rename of packages, bins, env KEY names/values, storage keys/paths, compose name, schema fields, lockfiles, versions, CHANGELOG history.
+
+### Focused checks (implementer runs ONLY these)
+
+- `rg -ri 'ngoanpv|deepinterview\.ai|deepinterview\.dev' --glob '!pnpm-lock.yaml' --glob '!uv.lock' --glob '!CHANGELOG.md'` → expect zero hits (CHANGELOG history exempted).
+- `rg -n 'DeepInterview' apps/web/app apps/web/components apps/web/lib/i18n README.md README.vi.md cli/src/index.ts cli/src/commands/init.ts .env.example scripts/setup.sh SECURITY.md CITATION.cff NOTICE` → expect zero hits outside kept-identifier lines (import/`@deepinterview`/`deepinterview-agent`/CLI invocations documented in the diff).
+- `pnpm --filter @deepinterview/web typecheck && pnpm --filter @deepinterview/web test && pnpm --filter @deepinterview/cli typecheck && pnpm --filter @deepinterview/cli test && pnpm --filter @deepinterview/shared typecheck` green; `uv --directory apps/agent run pytest -q` green (or untouched-unchanged with justification); `pnpm build --filter @deepinterview/web...` green.
+- `docker compose config -q` green (if compose file touched at all — expected not).
+
+### Browser QA (before merge, light + dark × desktop 1440px + mobile 390px)
+
+- Landing: wordmark `OpenInterview`, hero copy, clone block (`KeentGG/OpenInterview`, `cd OpenInterview`), GitHub/Star/docs buttons land on fork URLs, footer `© 2026 OpenInterview`, no `DeepInterview` visible, no layout shift vs baseline screenshots.
+- Flow: `/setup` → `/prep` → live-room (mock/offline join) → `/report/[id]` (sample) → `/interview/coach`: eyebrows read `OpenInterview`, coach `OpenInterview · Prep Coach`; console has no brand-asset 404s (favicon/OG/icon resolve).
+- i18n: EN + VI toggle — `appName` + landing subtitle render `OpenInterview` in both; no missing-key fallback regressions.
+- OG: `opengraph-image` renders `OpenInterview` headline; `icon.svg` + `logo.svg` load with new labels.
+
+### Evidence required before merge
+
+- Diff stat + `rg` zero-hit outputs above pasted in PR/ship notes; focused checks table with exit codes; desktop+mobile light+dark screenshots (landing, setup, report, coach); independent reviewer (non-implementer via Main) confirms no runtime-identifier rename and CI green.
+
+### Rollback
+
+- Single-topic branch: revert the merge commit (or `git revert`). No migrations, no data changes, no env-key changes — rollback is a pure code revert; persisted sessions/traces/SQLite/localStorage remain readable because no identifier changed.
+
+### Main-agent step (NOT implementer): enable/configure fork Issues
+
+- Fork shows Issues disabled. In `github.com/KeentGG/OpenInterview` Settings → General → Features → enable `Issues` (admin required). Then verify: Issues tab visible, `blank_issues_enabled: false` still honored, open a scratch issue exercising bug + feature templates (contact links route to fork Discussions/Security policy), then close/delete it. Do NOT change Discussions/Discord/security policy beyond this plan.
+
+## Implementation — Item 2 Brand/conversion
+
+- **Branch:** `transition/brand-conversion`
+- **Worktree:** `/home/keen/open_source/DeepInterview-worktrees/brand-conversion`
+- **Baseline:** main `8a713cb28ec1dc93ece064858747ab4bb82c0709`
+- **Code commit:** `0d1cdd335e94170a7c19f13d892fb33f409f409f` (`feat(brand): rebrand user-facing surfaces to OpenInterview`)
+- **Scope:** 41 product/docs files plus this log. Internal identifiers, lockfiles, versions, schemas, compose project name, storage keys/paths, and CLI command names are unchanged.
+
+### Changed
+
+- **Web brand:** `apps/web/lib/site.ts` (fork GitHub URL); `apps/web/app/layout.tsx` (title/template, description, applicationName, OG/Twitter, `metadataBase` → `http://localhost:3000`); `apps/web/app/opengraph-image.tsx`; `apps/web/app/icon.svg` + `assets/logo.svg` accessible names (geometry byte-identical); `brand-mark.tsx` comment.
+- **Landing/screens:** `components/landing/{nav,footer,hero,open-source,hero-mock}.tsx`; `app/{setup,prep,report/[id],interview/coach,avatars}/page.tsx`; `components/session/prep-summary.tsx`. Hero mock now reads `OpenInterview · session/8f2a` (neutral label; no unowned domain).
+- **i18n:** `messages/{en,vi}.ts` `appName` + landing subtitle.
+- **CLI/setup:** `cli/src/index.ts` help header; `cli/src/commands/init.ts` wizard title + language line; `scripts/setup.sh`; `scripts/veo/render.mjs` console banners. `.env.example` already carried the `OpenInterview` header at baseline (left as-is).
+- **Fork links/templates:** `README.md`, `README.vi.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/PULL_REQUEST_TEMPLATE/skill_pack.md`, `.github/FUNDING.yml`, `avatars.manifest.json`, `cli/src/lib/avatar-manifest.test.ts`, `docs/AVATARS.md`.
+- **Docs prose:** `docs/{LOCAL_MODELS,OPENROUTER_AND_CPU_ONLY}.md`, `supabase/README.md`, `services/lightrag/README.md`.
+- **Attribution preserved intentionally:** `CITATION.cff`, `NOTICE`, the README/VI community-fork notice, the upstream `v0.3.0` release paragraph, and the upstream BibTeX citation keep `DeepInterview`/`ngoanpv` references. `docs/ARCHITECTURE.md` already states “community fork of DeepInterview”. Internal comments/docstrings, FastAPI titles, Dockerfile comments, and `pyproject.toml` descriptions were left unchanged per the scope guard.
+- **Links:** Discord (no fork server) removed from README badges/community lists and issue-template contacts. Security/conduct reporting now uses GitHub private advisories rather than the defunct `security@`/`conduct@deepinterview.dev` inboxes.
+
+### Checks (run in the worktree)
+
+| Check | Result |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | pass; lockfile unchanged |
+| `pnpm --filter @deepinterview/shared build` + `pnpm --filter @deepinterview/ee build` | pass (typecheck prerequisite) |
+| `pnpm --filter @deepinterview/web typecheck` | pass |
+| `pnpm --filter @deepinterview/web test` | pass (5 files, 16 tests) |
+| `pnpm --filter @deepinterview/cli typecheck` | pass |
+| `pnpm --filter @deepinterview/cli test` | pass (4 files, 24 tests) |
+| `pnpm --filter @deepinterview/shared typecheck` | pass |
+| `pnpm build --filter '@deepinterview/web...'` | pass (3/3 tasks; 36.9s) |
+| `docker compose config -q` | pass (exit 0) |
+| `uv --directory apps/agent run pytest -q` | not run — no Python or product code changed (docs-only/no-op for the agent) |
+
+### Brand/link audits
+
+- `rg -n 'ngoanpv\|deepinterview\.ai\|deepinterview\.dev\|discord\.gg/fT7Ecbyq' --glob '!pnpm-lock.yaml' --glob '!uv.lock' --glob '!CHANGELOG.md' --glob '!WORKLOG.md'` → only the allowed attribution/history references: `CITATION.cff`, the README/VI community-fork notice, the upstream `v0.3.0` release paragraph, and the BibTeX URL. No `deepinterview.ai`, `deepinterview.dev`, or Discord hits.
+- `rg -n 'DeepInterview' apps/web/app apps/web/components apps/web/lib/i18n README.md README.vi.md cli/src/index.ts cli/src/commands/init.ts .env.example scripts/setup.sh SECURITY.md CONTRIBUTING.md .github` → no hits in web/i18n/CLI/template copy; only the README fork notice, upstream release paragraph, and citation block.
+- `rg -n 'deepinterview' apps/web` (excluding workspace identifiers) → only the Docker image tag in `apps/web/Dockerfile` (kept identifier).
+- `rg -n 'openinterview\.ai\|openinterview\.dev'` → no hits.
+
+### Remaining manual QA (before merge)
+
+- Landing: wordmark/hero/clone block (`KeentGG/OpenInterview`, `cd OpenInterview`), GitHub/Star/docs buttons, footer `© 2026 OpenInterview`, light+dark at 1440px and 390px; confirm no layout shift and no `DeepInterview` visible.
+- Flow `/setup` → `/prep` → live room (mock/offline join) → `/report/[id]` → `/interview/coach`: eyebrows/coach label read `OpenInterview`; no brand-asset 404s (favicon/OG/icon).
+- EN + VI toggle: `appName` and landing subtitle render `OpenInterview` in both.
+- OG image renders the `OpenInterview` headline; `icon.svg`/`logo.svg` carry the new accessible names.
+- Fork Issues/Discussions still need the main-agent admin step; README Release badge shows an empty state until the fork cuts a tag (expected).
